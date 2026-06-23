@@ -2,12 +2,10 @@ import React, { useState } from 'react';
 import type { Fighter, SparringVideo } from '../types/mma';
 import { calculateBMI, getBMICategory } from '../services/storage';
 import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award } from 'lucide-react';
-
-// Import logos for embedding in technical sheets
+import { BeltVisual } from './BeltVisual';
 import bjjLogo from '../assets/Logos/BJJ.png';
 import kickLogo from '../assets/Logos/Kick boxing.png';
 import thaiLogo from '../assets/Logos/Muay thai.png';
-
 interface FighterProfileProps {
   fighter: Fighter;
   onEditFighter: (fighter: Fighter) => void;
@@ -32,10 +30,6 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
   const bmiCategory = getBMICategory(bmi);
 
   // Determine current active sub-club logo for header
-  let activeClubLogo = bjjLogo;
-  if (fighter.subClub.toLowerCase().includes('kick')) activeClubLogo = kickLogo;
-  else if (fighter.subClub.toLowerCase().includes('muay') || fighter.subClub.toLowerCase().includes('american')) activeClubLogo = thaiLogo;
-
   const handleAddVideo = (e: React.FormEvent) => {
     e.preventDefault();
     if (!videoTitle || !videoDate) return;
@@ -142,7 +136,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
               height: '120px',
               borderRadius: '50%',
               objectFit: 'cover',
-              border: '3px solid var(--accent-red)',
+              border: '3px solid var(--accent-orange)',
               boxShadow: '0 0 25px rgba(244, 63, 94, 0.4)',
             }}
             onError={(e) => {
@@ -155,20 +149,17 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
         <div style={{ position: 'relative', zIndex: 1, flexGrow: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '2.2rem', color: '#fff', fontWeight: '800', letterSpacing: '-0.02em' }}>{fighter.name}</h1>
+            {fighter.coachRole === 'monitor' && (
+              <span className="badge badge-blue" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>Monitor</span>
+            )}
+            {fighter.coachRole === 'maestro' && (
+              <span className="badge badge-red" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>Maestro</span>
+            )}
           </div>
-          <p style={{ color: 'var(--accent-red)', fontWeight: '700', fontSize: '1.1rem', marginTop: '4px', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
+          <p style={{ color: 'var(--accent-orange)', fontWeight: '700', fontSize: '1.1rem', marginTop: '4px', letterSpacing: '0.02em', textTransform: 'uppercase' }}>
             Estilo: {fighter.primaryStyle}
           </p>
           
-          <div style={{ display: 'flex', gap: '10px', marginTop: '14px', flexWrap: 'wrap', alignItems: 'center' }}>
-            <span className="badge badge-red" style={{ padding: '6px 12px' }}>
-              {fighter.mainClub}
-            </span>
-            <span className="badge badge-gold" style={{ padding: '6px 12px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-              <img src={activeClubLogo} alt="Sub Club Logo" style={{ width: '16px', height: '16px', objectFit: 'contain' }} />
-              {fighter.subClub}
-            </span>
-          </div>
         </div>
       </div>
 
@@ -179,7 +170,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
           {/* Physical Metrics Card */}
           <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', display: 'flex', flexDirection: 'column' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Award size={18} style={{ color: 'var(--accent-red)' }} />
+              <Award size={18} style={{ color: 'var(--accent-orange)' }} />
               <span>Métricas de Rendimiento Físico</span>
             </h3>
             
@@ -200,9 +191,9 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
 
               {/* Heart Rate */}
               <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                <Heart size={20} style={{ color: 'var(--accent-red)', marginBottom: '8px' }} />
+                <Heart size={20} style={{ color: 'var(--accent-orange)', marginBottom: '8px' }} />
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Pulso</p>
-                <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.heartRate} <span style={{ fontSize: '0.7rem', fontWeight: '500', color: 'var(--text-secondary)' }}>BPM</span></p>
+                <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.restingHR} <span style={{ fontSize: '0.7rem', fontWeight: '500', color: 'var(--text-secondary)' }}>BPM</span></p>
               </div>
             </div>
 
@@ -278,7 +269,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                 let tabName = '';
                 let activeColor = '';
                 if (tab === 'bjj') { tabName = 'Jiu Jitsu'; activeColor = 'var(--accent-bjj)'; }
-                if (tab === 'kickboxing') { tabName = 'Kick Boxing'; activeColor = 'var(--accent-red)'; }
+                if (tab === 'kickboxing') { tabName = 'Kick Boxing'; activeColor = '#ef4444'; }
                 if (tab === 'muaythai') { tabName = 'Muay Thai'; activeColor = 'var(--accent-muaythai)'; }
                 
                 return (
@@ -313,7 +304,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                 let badgeClass = '';
                 let logoSrc = bjjLogo;
                 if (activeTab === 'bjj') { accentColor = 'var(--accent-bjj)'; badgeClass = 'badge-bjj'; logoSrc = bjjLogo; }
-                if (activeTab === 'kickboxing') { accentColor = 'var(--accent-red)'; badgeClass = 'badge-red'; logoSrc = kickLogo; }
+                if (activeTab === 'kickboxing') { accentColor = '#ef4444'; badgeClass = 'badge-red'; logoSrc = kickLogo; }
                 if (activeTab === 'muaythai') { accentColor = 'var(--accent-muaythai)'; badgeClass = 'badge-muaythai'; logoSrc = thaiLogo; }
 
                 return (
@@ -321,9 +312,12 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <img src={logoSrc} alt="discipline-logo" style={{ width: '22px', height: '22px', objectFit: 'contain' }} />
-                        <span className={`badge ${badgeClass}`} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
-                          {data.rank || 'Sin rango'}
-                        </span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <BeltVisual discipline={activeTab} rank={data.rank || ''} size={32} />
+                          <span className={`badge ${badgeClass}`} style={{ fontSize: '0.8rem', padding: '6px 12px' }}>
+                            {data.rank || 'Sin rango'}
+                          </span>
+                        </div>
                       </div>
                       
                       {data.active ? (
@@ -372,7 +366,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
       <div className="glass-panel" style={{ padding: '30px', borderRadius: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '15px' }}>
           <h3 style={{ fontSize: '1.3rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <Video style={{ color: 'var(--accent-red)' }} />
+            <Video style={{ color: 'var(--accent-orange)' }} />
             <span>Registro Audiovisual de Sparring</span>
           </h3>
           <button 
@@ -387,7 +381,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
 
         {/* Add Sparring Form (Toggleable inline) */}
         {showAddVideoForm && (
-          <form onSubmit={handleAddVideo} className="glass-card" style={{ padding: '20px', marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', border: '1px solid var(--accent-red)' }}>
+          <form onSubmit={handleAddVideo} className="glass-card" style={{ padding: '20px', marginBottom: '24px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', border: '1px solid var(--accent-orange)' }}>
             <div className="form-group">
               <label className="form-label">Título del Combate / Drill</label>
               <input 
@@ -479,7 +473,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                     {video.title}
                   </h4>
                   {video.notes && (
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px', marginTop: 'auto', borderLeft: '2px solid var(--accent-red)' }}>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4', background: 'rgba(255,255,255,0.01)', padding: '10px', borderRadius: '8px', marginTop: 'auto', borderLeft: '2px solid var(--accent-orange)' }}>
                       {video.notes}
                     </p>
                   )}

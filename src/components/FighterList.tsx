@@ -152,7 +152,7 @@ export const FighterList: React.FC<FighterListProps> = ({
           style={{
             background: filterDiscipline === 'kickboxing' ? 'rgba(244, 63, 94, 0.15)' : 'transparent',
             border: 'none',
-            color: filterDiscipline === 'kickboxing' ? 'var(--accent-red)' : 'var(--text-secondary)',
+            color: filterDiscipline === 'kickboxing' ? '#ef4444' : 'var(--text-secondary)',
             fontSize: '0.7rem',
             padding: '8px 2px',
             borderRadius: '6px',
@@ -216,7 +216,7 @@ export const FighterList: React.FC<FighterListProps> = ({
                       height: '44px',
                       borderRadius: '50%',
                       objectFit: 'cover',
-                      border: isSelected ? '2px solid var(--accent-red)' : '1px solid rgba(255,255,255,0.1)',
+                      border: isSelected ? '2px solid var(--accent-orange)' : '1px solid rgba(255,255,255,0.1)',
                       transition: 'all 0.3s ease',
                     }}
                     onError={(e) => {
