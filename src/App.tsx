@@ -2,8 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { Fighter } from './types/mma';
 import type { PageKey } from './components/Topbar';
 import { subscribeFighters, saveFighter, deleteFighter } from './services/storage';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LoginPage } from './components/LoginPage';
+import { AuthProvider } from './contexts/AuthContext';
 import { Topbar } from './components/Topbar';
 import { Dashboard } from './components/Dashboard';
 import { FighterList } from './components/FighterList';
@@ -13,25 +12,10 @@ import { SubClubs } from './components/SubClubs';
 import { ClubInfoPage } from './components/ClubInfo';
 import { Tutorials } from './components/Tutorials';
 import { Shop } from './components/Shop';
+import { AdminPanel } from './components/AdminPanel';
 import { Shield, Menu, Loader2 } from 'lucide-react';
 
 const AppContent: React.FC = () => {
-  const { user, loading } = useAuth();
-
-  if (loading) {
-    return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg-primary)' }}>
-        <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent-orange)' }} />
-      </div>
-    );
-  }
-
-  if (!user) return <LoginPage />;
-
-  return <AuthenticatedApp />;
-};
-
-const AuthenticatedApp: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
   const [fighters, setFighters] = useState<Fighter[]>([]);
   const [fightersLoading, setFightersLoading] = useState(true);
@@ -39,6 +23,7 @@ const AuthenticatedApp: React.FC = () => {
   const [showForm, setShowForm] = useState(false);
   const [editingFighter, setEditingFighter] = useState<Fighter | null>(null);
   const [sidebarVisible, setSidebarVisible] = useState(true);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setFightersLoading(false), 8000);
@@ -108,17 +93,18 @@ const AuthenticatedApp: React.FC = () => {
   if (fightersLoading) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Topbar currentPage={currentPage} onNavigate={handleNavigate} />
+        <Topbar currentPage={currentPage} onNavigate={handleNavigate} onOpenAdmin={() => setShowAdminPanel(true)} />
         <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent-orange)' }} />
         </div>
+        {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
       </div>
     );
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Topbar currentPage={currentPage} onNavigate={handleNavigate} />
+      <Topbar currentPage={currentPage} onNavigate={handleNavigate} onOpenAdmin={() => setShowAdminPanel(true)} />
 
       {currentPage === 'dashboard' && (
         <main className="main-content" style={{ height: 'auto' }}>
@@ -208,6 +194,8 @@ const AuthenticatedApp: React.FC = () => {
           onClose={handleCloseForm}
         />
       )}
+
+      {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
     </div>
   );
 };

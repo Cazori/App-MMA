@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Fighter } from '../types/mma';
-import { Search, UserPlus, Trophy } from 'lucide-react';
+import { Search, UserPlus, Trophy, Shield } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 // Import gym logos
 import mainLogo from '../assets/Logos/CLUB GUERREREOS DE DIOS.png';
@@ -21,6 +22,7 @@ export const FighterList: React.FC<FighterListProps> = ({
   onSelectFighter,
   onOpenAddModal,
 }) => {
+  const { isEditor } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDiscipline, setFilterDiscipline] = useState<'all' | 'bjj' | 'kickboxing' | 'muaythai'>('all');
 
@@ -92,15 +94,29 @@ export const FighterList: React.FC<FighterListProps> = ({
         </div>
       </div>
 
-      {/* Register Fighter Button */}
-      <button 
-        className="btn btn-primary" 
-        onClick={onOpenAddModal}
-        style={{ width: '100%', marginBottom: '20px', padding: '12px' }}
-      >
-        <UserPlus size={18} />
-        Registrar Peleador
-      </button>
+      {isEditor && (
+        <button 
+          className="btn btn-primary" 
+          onClick={onOpenAddModal}
+          style={{ width: '100%', marginBottom: '20px', padding: '12px' }}
+        >
+          <UserPlus size={18} />
+          Registrar Peleador
+        </button>
+      )}
+
+      {!isEditor && (
+        <div style={{
+          width: '100%', marginBottom: '20px', padding: '10px 14px',
+          borderRadius: '10px', background: 'rgba(234,179,8,0.05)',
+          border: '1px solid rgba(234,179,8,0.12)',
+          display: 'flex', alignItems: 'center', gap: '8px',
+          fontSize: '0.78rem', color: 'var(--text-secondary)',
+        }}>
+          <Shield size={14} style={{ color: 'var(--accent-gold)' }} />
+          <span>Modo solo lectura — activá Admin para editar</span>
+        </div>
+      )}
 
       {/* Search Input */}
       <div style={{ position: 'relative', marginBottom: '16px' }}>

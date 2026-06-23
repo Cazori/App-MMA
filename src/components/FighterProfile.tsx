@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { Fighter, SparringVideo } from '../types/mma';
 import { calculateBMI, getBMICategory } from '../services/storage';
 import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 import { BeltVisual } from './BeltVisual';
 import bjjLogo from '../assets/Logos/BJJ.png';
 import kickLogo from '../assets/Logos/Kick boxing.png';
@@ -17,6 +18,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
   onEditFighter,
   onDeleteFighter,
 }) => {
+  const { isEditor } = useAuth();
   const [activeTab, setActiveTab] = useState<'bjj' | 'kickboxing' | 'muaythai'>('bjj');
   
   // Local state to add sparring videos directly in the profile
@@ -104,27 +106,28 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
           pointerEvents: 'none'
         }}></div>
 
-        {/* Delete / Edit Actions in top right */}
-        <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '8px', zIndex: 5 }}>
-          <button 
-            onClick={() => onEditFighter(fighter)} 
-            className="btn btn-secondary" 
-            style={{ padding: '8px 12px', fontSize: '0.8rem' }}
-            title="Editar datos básicos y cinturones"
-          >
-            <Edit size={14} />
-            <span>Editar</span>
-          </button>
-          <button 
-            onClick={() => onDeleteFighter(fighter.id)} 
-            className="btn btn-danger" 
-            style={{ padding: '8px 12px', fontSize: '0.8rem' }}
-            title="Eliminar peleador del sistema"
-          >
-            <Trash2 size={14} />
-            <span>Eliminar</span>
-          </button>
-        </div>
+        {isEditor && (
+          <div style={{ position: 'absolute', top: '20px', right: '20px', display: 'flex', gap: '8px', zIndex: 5 }}>
+            <button 
+              onClick={() => onEditFighter(fighter)} 
+              className="btn btn-secondary" 
+              style={{ padding: '8px 12px', fontSize: '0.8rem' }}
+              title="Editar datos básicos y cinturones"
+            >
+              <Edit size={14} />
+              <span>Editar</span>
+            </button>
+            <button 
+              onClick={() => onDeleteFighter(fighter.id)} 
+              className="btn btn-danger" 
+              style={{ padding: '8px 12px', fontSize: '0.8rem' }}
+              title="Eliminar peleador del sistema"
+            >
+              <Trash2 size={14} />
+              <span>Eliminar</span>
+            </button>
+          </div>
+        )}
 
         {/* Big Glowing Avatar */}
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -369,14 +372,16 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
             <Video style={{ color: 'var(--accent-orange)' }} />
             <span>Registro Audiovisual de Sparring</span>
           </h3>
-          <button 
-            onClick={() => setShowAddVideoForm(!showAddVideoForm)} 
-            className="btn btn-secondary"
-            style={{ padding: '8px 16px', fontSize: '0.85rem' }}
-          >
-            <Plus size={16} />
-            Cargar Sparring
-          </button>
+          {isEditor && (
+            <button 
+              onClick={() => setShowAddVideoForm(!showAddVideoForm)} 
+              className="btn btn-secondary"
+              style={{ padding: '8px 16px', fontSize: '0.85rem' }}
+            >
+              <Plus size={16} />
+              Cargar Sparring
+            </button>
+          )}
         </div>
 
         {/* Add Sparring Form (Toggleable inline) */}
@@ -441,14 +446,15 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
             {fighter.sparrings.map((video) => (
               <div key={video.id} className="glass-card" style={{ display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', padding: '16px', position: 'relative' }}>
                 
-                {/* Delete video button */}
-                <button 
-                  onClick={() => handleDeleteVideo(video.id)} 
-                  style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(0,0,0,0.6)', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', borderRadius: '50%', padding: '6px', zIndex: 5 }}
-                  title="Eliminar video"
-                >
-                  <Trash2 size={14} />
-                </button>
+                {isEditor && (
+                  <button 
+                    onClick={() => handleDeleteVideo(video.id)} 
+                    style={{ position: 'absolute', top: '24px', right: '24px', background: 'rgba(0,0,0,0.6)', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', borderRadius: '50%', padding: '6px', zIndex: 5 }}
+                    title="Eliminar video"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
 
                 {/* Video Player Mock/Embed */}
                 <div style={{ position: 'relative', width: '100%', height: '160px', borderRadius: '10px', overflow: 'hidden', background: '#000', marginBottom: '12px' }}>
