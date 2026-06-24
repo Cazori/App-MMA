@@ -13,6 +13,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [keyValue, setKeyValue] = useState('');
   const [keyError, setKeyError] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
+  const [signInError, setSignInError] = useState('');
 
   const handleKeySubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,9 +29,12 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
 
   const handleGoogleSignIn = async () => {
     setSigningIn(true);
+    setSignInError('');
     try {
       await signIn();
       onClose();
+    } catch {
+      setSignInError('No se pudo iniciar sesión. Intentá de nuevo.');
     } finally {
       setSigningIn(false);
     }
@@ -141,6 +145,11 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
               )}
               Continuar con Google
             </button>
+            {signInError && (
+              <p style={{ color: 'var(--color-danger)', fontSize: '0.78rem', textAlign: 'center', width: '100%' }}>
+                {signInError}
+              </p>
+            )}
 
             <div style={{
               width: '100%',

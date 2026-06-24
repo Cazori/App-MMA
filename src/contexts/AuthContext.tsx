@@ -34,11 +34,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const signIn = useCallback(async () => {
-    try {
-      await signInWithGoogle();
-    } catch (err) {
-      console.error('Error al iniciar sesión:', err);
-    }
+    await signInWithGoogle();
   }, []);
 
   const logout = useCallback(async () => {

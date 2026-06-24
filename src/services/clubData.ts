@@ -65,7 +65,7 @@ export const TUTORIALS: Tutorial[] = [
     id: 't1',
     title: 'Armbar desde Guardia Cerrada',
     description: 'Técnica paso a paso para finalizar con llave de brazo desde la guardia cerrada en BJJ.',
-    thumbnailUrl: 'https://images.unsplash.com/photo-1555597673-b21d5c935c9c?w=400&h=250&fit=crop',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=400&h=250&fit=crop',
     videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
     discipline: 'bjj',
     duration: '12:30',

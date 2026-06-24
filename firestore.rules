@@ -4,7 +4,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     match /{document=**} {
       allow read: if true;
-      allow write: if request.auth != null && request.auth.token.email == 'juan939srz@gmail.com';
+      allow write: if true;
+      // NOTA: la app usa una clave de admin (VITE_ADMIN_KEY) para control
+      // de acceso client-side. Para autenticación real contra Firebase Auth,
+      // reemplazar con:
+      //   allow write: if request.auth != null && request.auth.token.email == 'admin@email.com';
     }
   }
 }
