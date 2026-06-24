@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { ShieldCheck, LogOut, X, Key, Loader2 } from 'lucide-react';
 import gladiadorLogo from '../assets/Logos/logosinfondo.png';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface AdminPanelProps {
   onClose: () => void;
@@ -55,7 +56,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       }}
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
     >
-      <div className="glass-panel" style={{
+      <div ref={useFocusTrap(true)} className="glass-panel" style={{
         padding: '40px',
         borderRadius: '24px',
         maxWidth: '400px',
@@ -68,6 +69,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       }}>
         <button
           onClick={onClose}
+          aria-label="Cerrar"
           style={{
             position: 'absolute',
             top: '16px',

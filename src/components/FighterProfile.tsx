@@ -3,6 +3,7 @@ import type { Fighter, SparringVideo } from '../types/mma';
 import { calculateBMI, getBMICategory } from '../services/storage';
 import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useConfirm } from '../contexts/ConfirmContext';
 import { BeltVisual } from './BeltVisual';
 import bjjLogo from '../assets/Logos/BJJ.png';
 import kickLogo from '../assets/Logos/Kick boxing.png';
@@ -19,6 +20,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
   onDeleteFighter,
 }) => {
   const { isEditor } = useAuth();
+  const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState<'bjj' | 'kickboxing' | 'muaythai'>('bjj');
   
   // Local state to add sparring videos directly in the profile
@@ -70,8 +72,9 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
     onEditFighter(updated);
   };
 
-  const handleDeleteVideo = (videoId: string) => {
-    if (!window.confirm('¿Seguro que querés eliminar esta grabación de sparring?')) return;
+  const handleDeleteVideo = async (videoId: string) => {
+    const ok = await confirm({ message: '¿Seguro que querés eliminar esta grabación de sparring?', danger: true, confirmLabel: 'Eliminar' });
+    if (!ok) return;
     
     const updatedFighter: Fighter = {
       ...fighter,

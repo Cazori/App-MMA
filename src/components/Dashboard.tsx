@@ -1,14 +1,13 @@
 import type { PageKey } from './Topbar';
 import type { Fighter } from '../types/mma';
-import { subscribeFighters } from '../services/storage';
 import { SUB_CLUBS, TUTORIALS, ALERTS, CLUB_INFO, bjjLogo, kickLogo, thaiLogo } from '../services/clubData';
 import { FighterCard } from './FighterCard';
 import { SubClubCard } from './SubClubCard';
 import { TutorialCard } from './TutorialCard';
 import { Calendar, Bell, MapPin, Phone, Mail, Globe, AtSign, Shield } from 'lucide-react';
-import { useEffect, useState } from 'react';
 
 interface DashboardProps {
+  fighters: Fighter[];
   onSelectFighter: (id: string) => void;
   onNavigate: (page: PageKey) => void;
 }
@@ -23,13 +22,7 @@ const DAY_SCHEDULE = [
   { day: 'Domingo', sessions: ['Descanso'] },
 ];
 
-export const Dashboard: React.FC<DashboardProps> = ({ onSelectFighter, onNavigate }) => {
-  const [fighters, setFighters] = useState<Fighter[]>([]);
-
-  useEffect(() => {
-    const unsub = subscribeFighters((list) => setFighters(list));
-    return unsub;
-  }, []);
+export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter, onNavigate }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>

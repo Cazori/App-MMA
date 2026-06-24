@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import type { Fighter, PrimaryStyle, CoachRole } from '../types/mma';
-import { Shield, X, Upload } from 'lucide-react';
+import { Shield, X, Upload, Loader2 } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
+import { useFocusTrap } from '../hooks/useFocusTrap';
 
 interface FighterFormProps {
   fighter?: Fighter | null;
@@ -8,11 +10,21 @@ interface FighterFormProps {
   onClose: () => void;
 }
 
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
 export const FighterForm: React.FC<FighterFormProps> = ({
   fighter,
   onSave,
   onClose,
 }) => {
+  const { toast } = useToast();
   const [name, setName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
@@ -88,15 +100,6 @@ export const FighterForm: React.FC<FighterFormProps> = ({
     }
   };
 
-  const fileToBase64 = (file: File): Promise<string | null> => {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || saving) return;
@@ -104,12 +107,18 @@ export const FighterForm: React.FC<FighterFormProps> = ({
 
     let finalPhotoUrl = photoPreview;
     if (photoFile) {
-      const b64 = await fileToBase64(photoFile);
-      if (b64) finalPhotoUrl = b64;
+      try {
+        finalPhotoUrl = await fileToBase64(photoFile);
+      } catch (err) {
+        console.error('Error al convertir foto:', err);
+        setSaving(false);
+        return;
+      }
     }
 
+    const fighterId = fighter?.id || `f-${Date.now()}`;
     const savedFighter: Fighter = {
-      id: fighter?.id || `f-${Date.now()}`,
+      id: fighterId,
       name,
       photoUrl: finalPhotoUrl || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=300&fit=crop&crop=faces',
       primaryStyle,
@@ -147,8 +156,10 @@ export const FighterForm: React.FC<FighterFormProps> = ({
 
     try {
       await onSave(savedFighter);
+      toast('success', fighter ? 'Peleador actualizado' : 'Peleador registrado');
     } catch (err) {
       console.error('Error al guardar peleador:', err);
+      toast('error', 'Error al guardar. Intentá de nuevo.');
     }
     setSaving(false);
   };
@@ -169,6 +180,7 @@ export const FighterForm: React.FC<FighterFormProps> = ({
       backdropFilter: 'blur(5px)',
     }}>
       <div 
+        ref={useFocusTrap(true)}
         className="glass-panel" 
         style={{
           width: '100%',
@@ -198,6 +210,7 @@ export const FighterForm: React.FC<FighterFormProps> = ({
           </h2>
           <button 
             onClick={onClose} 
+            aria-label="Cerrar"
             style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
             title="Cerrar modal"
           >
@@ -426,7 +439,7 @@ export const FighterForm: React.FC<FighterFormProps> = ({
               Cancelar
             </button>
             <button type="submit" className="btn btn-primary" disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar Cambios'}
+              {saving ? <><Loader2 size={16} className="animate-spin" /> Guardando...</> : 'Guardar Cambios'}
             </button>
           </div>
 

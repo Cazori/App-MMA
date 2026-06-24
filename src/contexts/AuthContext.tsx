@@ -16,7 +16,7 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const ADMIN_EMAIL = 'juan939srz@gmail.com';
-const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY || 'Codazoenlacabeza';
+const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY;
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -44,6 +44,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const adminKeyLogin = useCallback((key: string): boolean => {
+    if (!ADMIN_KEY) return false;
     const valid = key === ADMIN_KEY;
     if (valid) {
       setAdminKeyAuthenticated(true);
