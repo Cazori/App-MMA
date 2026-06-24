@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg'],
+      includeAssets: ['gladiador-favicon.png'],
       manifest: {
         name: 'Guerreros de Dios MMA',
         short_name: 'GD MMA',
@@ -22,21 +22,21 @@ export default defineConfig({
         categories: ['sports', 'fitness'],
         icons: [
           {
-            src: '/favicon.svg',
+            src: '/gladiador-favicon.png',
             sizes: '48x48',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/favicon.svg',
+            src: '/gladiador-favicon.png',
             sizes: '192x192',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/favicon.svg',
+            src: '/gladiador-favicon.png',
             sizes: '512x512',
-            type: 'image/svg+xml',
+            type: 'image/png',
             purpose: 'any',
           },
         ],
