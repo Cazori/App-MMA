@@ -29,7 +29,7 @@ export const Tutorials: React.FC = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div style={{ display: 'flex', gap: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         {FILTERS.map((f) => (
           <button
             key={f.key}

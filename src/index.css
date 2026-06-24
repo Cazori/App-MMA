@@ -369,6 +369,10 @@ h1, h2, h3, h4, h5, h6 {
     max-width: 100%;
   }
 
+  /* Mobile-safe heading sizes */
+  h1 { font-size: 1.5rem !important; }
+  h2 { font-size: 1.2rem !important; }
+
   /* Add padding to prevent content from hiding behind bottom nav */
   .main-content {
     padding-bottom: calc(var(--bottom-nav-height) + var(--safe-area-bottom) + 20px);

@@ -85,11 +85,11 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
       
       {/* Header Profile Section */}
       <div className="glass-panel" style={{ 
-        padding: '30px', 
+        padding: '24px', 
         borderRadius: '24px', 
         display: 'flex', 
         flexWrap: 'wrap', 
-        gap: '24px', 
+        gap: '20px', 
         alignItems: 'center', 
         position: 'relative',
         overflow: 'hidden'
@@ -166,37 +166,37 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
         </div>
       </div>
 
-      {/* Grid: Physical Stats & Disciplines */}
+        {/* Grid: Physical Stats & Disciplines */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '30px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '30px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
           
           {/* Physical Metrics Card */}
-          <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px', display: 'flex', flexDirection: 'column' }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div className="glass-panel" style={{ padding: '20px', borderRadius: '20px', display: 'flex', flexDirection: 'column' }}>
+            <h3 style={{ fontSize: '1.1rem', marginBottom: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '10px', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Award size={18} style={{ color: 'var(--accent-orange)' }} />
               <span>Métricas de Rendimiento Físico</span>
             </h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px', marginBottom: '20px' }}>
               {/* Height */}
-              <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                <Ruler size={20} style={{ color: 'var(--text-secondary)', marginBottom: '8px' }} />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Altura</p>
-                <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.height} <span style={{ fontSize: '0.8rem', fontWeight: '500', color: 'var(--text-secondary)' }}>cm</span></p>
+              <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
+                <Ruler size={18} style={{ color: 'var(--text-secondary)', marginBottom: '6px' }} />
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Altura</p>
+                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.height} <span style={{ fontSize: '0.7rem', fontWeight: '500', color: 'var(--text-secondary)' }}>cm</span></p>
               </div>
 
               {/* Weight */}
-              <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                <Scale size={20} style={{ color: 'var(--text-secondary)', marginBottom: '8px' }} />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Peso</p>
-                <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.weight} <span style={{ fontSize: '0.8rem', fontWeight: '500', color: 'var(--text-secondary)' }}>kg</span></p>
+              <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
+                <Scale size={18} style={{ color: 'var(--text-secondary)', marginBottom: '6px' }} />
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Peso</p>
+                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.weight} <span style={{ fontSize: '0.7rem', fontWeight: '500', color: 'var(--text-secondary)' }}>kg</span></p>
               </div>
 
               {/* Heart Rate */}
-              <div style={{ background: 'var(--bg-input)', padding: '16px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                <Heart size={20} style={{ color: 'var(--accent-orange)', marginBottom: '8px' }} />
-                <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Pulso</p>
-                <p style={{ fontSize: '1.3rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.restingHR} <span style={{ fontSize: '0.7rem', fontWeight: '500', color: 'var(--text-secondary)' }}>BPM</span></p>
+              <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
+                <Heart size={18} style={{ color: 'var(--accent-orange)', marginBottom: '6px' }} />
+                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Pulso</p>
+                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.restingHR} <span style={{ fontSize: '0.65rem', fontWeight: '500', color: 'var(--text-secondary)' }}>BPM</span></p>
               </div>
             </div>
 

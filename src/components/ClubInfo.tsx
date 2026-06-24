@@ -30,7 +30,7 @@ export const ClubInfoPage: React.FC<ClubInfoPageProps> = ({ fightersCount = 0, c
         </p>
       </div>
 
-      <div className="glass-panel" style={{ padding: '32px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      <div className="glass-panel" style={{ padding: '24px', borderRadius: '24px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '1px solid var(--border-color)', paddingBottom: '20px' }}>
           <Shield size={48} style={{ color: 'var(--accent-orange)' }} />
           <div>
@@ -68,7 +68,7 @@ export const ClubInfoPage: React.FC<ClubInfoPageProps> = ({ fightersCount = 0, c
         </div>
 
         {/* Mission & Vision */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px' }}>
           <div style={{ padding: '20px', background: 'rgba(255,255,255,0.02)', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--accent-bjj)' }}>
               <Target size={18} />

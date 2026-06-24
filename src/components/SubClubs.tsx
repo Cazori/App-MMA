@@ -19,12 +19,12 @@ export const SubClubs: React.FC = () => {
         </p>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(380px, 1fr))', gap: '24px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '24px' }}>
         {SUB_CLUBS.map((sc) => {
           const logoSrc = LOGO_MAP[sc.discipline];
           return (
             <div key={sc.id} className="glass-panel" style={{
-              padding: '32px',
+              padding: '24px',
               borderRadius: '24px',
               position: 'relative',
               overflow: 'hidden',

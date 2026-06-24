@@ -173,7 +173,7 @@ export const FighterForm: React.FC<FighterFormProps> = ({
         style={{
           width: '100%',
           maxWidth: '750px',
-          maxHeight: '90vh',
+          maxHeight: '90dvh',
           borderRadius: '24px',
           overflowY: 'auto',
           display: 'flex',
@@ -182,7 +182,7 @@ export const FighterForm: React.FC<FighterFormProps> = ({
         }}
       >
         <div style={{
-          padding: '24px 30px',
+          padding: '20px 24px',
           borderBottom: '1px solid var(--border-color)',
           display: 'flex',
           justifyContent: 'space-between',
@@ -205,14 +205,14 @@ export const FighterForm: React.FC<FighterFormProps> = ({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ padding: '30px', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <form onSubmit={handleSubmit} style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
           
           <div>
             <h3 style={{ fontSize: '1rem', textTransform: 'uppercase', color: 'var(--accent-orange)', letterSpacing: '0.05em', marginBottom: '16px' }}>
               Datos Básicos
             </h3>
             
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
               <div className="form-group">
                 <label className="form-label">Nombre Completo y Apodo</label>
                 <input 
@@ -290,7 +290,7 @@ export const FighterForm: React.FC<FighterFormProps> = ({
               Métricas Físicas
             </h3>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
               <div className="form-group">
                 <label className="form-label">Altura (cm)</label>
                 <input type="number" value={height} onChange={(e) => setHeight(Number(e.target.value))} required min="50" max="250" className="form-input" />
@@ -300,15 +300,15 @@ export const FighterForm: React.FC<FighterFormProps> = ({
                 <input type="number" value={weight} onChange={(e) => setWeight(Number(e.target.value))} required min="20" max="200" className="form-input" />
               </div>
               <div className="form-group">
-                <label className="form-label">FC Reposo (BPM)</label>
+                <label className="form-label">FC Reposo</label>
                 <input type="number" value={restingHR} onChange={(e) => setRestingHR(Number(e.target.value))} required min="30" max="220" className="form-input" />
               </div>
               <div className="form-group">
-                <label className="form-label">FC Actividad (BPM)</label>
+                <label className="form-label">FC Actividad</label>
                 <input type="number" value={activeHR} onChange={(e) => setActiveHR(Number(e.target.value))} min="30" max="250" className="form-input" />
               </div>
               <div className="form-group">
-                <label className="form-label">Recuperación (caída BPM)</label>
+                <label className="form-label">Recuperación</label>
                 <input type="number" value={recoveryRate} onChange={(e) => setRecoveryRate(Number(e.target.value))} min="0" max="100" className="form-input" />
               </div>
             </div>
