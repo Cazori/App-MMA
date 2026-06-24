@@ -34,11 +34,19 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const signIn = useCallback(async () => {
-    await signInWithGoogle();
+    try {
+      await signInWithGoogle();
+    } catch (err) {
+      console.error('Error al iniciar sesión:', err);
+    }
   }, []);
 
   const logout = useCallback(async () => {
-    await firebaseLogout();
+    try {
+      await firebaseLogout();
+    } catch (err) {
+      console.error('Error al cerrar sesión:', err);
+    }
     setAdminKeyAuthenticated(false);
     localStorage.removeItem('adminKeyAuth');
   }, []);

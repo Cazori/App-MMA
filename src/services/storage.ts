@@ -68,6 +68,33 @@ const MOCK_FIGHTERS: Fighter[] = [
   },
 ];
 
+const toFighter = (id: string, data: Record<string, unknown>): Fighter => ({
+  id,
+  name: (data.name as string) || '',
+  photoUrl: (data.photoUrl as string) || 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=300&h=300&fit=crop&crop=faces',
+  primaryStyle: (data.primaryStyle as Fighter['primaryStyle']) || 'Mixto',
+  role: (data.role as Fighter['role']) || 'atleta',
+  coachRole: (data.coachRole as Fighter['coachRole']),
+  record: (data.record as string) || '',
+  physicalMetrics: {
+    height: ((data.physicalMetrics as Record<string, unknown>)?.height as number) || 175,
+    weight: ((data.physicalMetrics as Record<string, unknown>)?.weight as number) || 70,
+    restingHR: ((data.physicalMetrics as Record<string, unknown>)?.restingHR as number) || 65,
+    activeHR: ((data.physicalMetrics as Record<string, unknown>)?.activeHR as number) || 140,
+    recoveryRate: ((data.physicalMetrics as Record<string, unknown>)?.recoveryRate as number) || 30,
+  },
+  disciplines: {
+    bjj: { rank: '', style: '', active: false, notes: '' },
+    kickboxing: { rank: '', style: '', active: false, notes: '' },
+    muaythai: { rank: '', style: '', active: false, notes: '' },
+    ...(data.disciplines as Record<string, unknown> || {}),
+  },
+  sparrings: (data.sparrings as Fighter['sparrings']) || [],
+  socialMedia: data.socialMedia as Fighter['socialMedia'],
+  createdAt: data.createdAt as string,
+  updatedAt: data.updatedAt as string,
+});
+
 export const subscribeFighters = (onData: (fighters: Fighter[]) => void, onError?: (err: Error) => void): Unsubscribe => {
   const q = query(collection(db, FIGHTERS_COLLECTION), orderBy('name'));
   return onSnapshot(q,
@@ -77,7 +104,7 @@ export const subscribeFighters = (onData: (fighters: Fighter[]) => void, onError
           .then(async () => {
             const q2 = query(collection(db, FIGHTERS_COLLECTION), orderBy('name'));
             const snap2 = await getDocs(q2);
-            const list = snap2.docs.map(d => ({ id: d.id, ...d.data() } as Fighter));
+            const list = snap2.docs.map(d => toFighter(d.id, d.data() as Record<string, unknown>));
             onData(list);
           })
           .catch((err) => {
@@ -86,7 +113,7 @@ export const subscribeFighters = (onData: (fighters: Fighter[]) => void, onError
           });
         return;
       }
-      const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Fighter));
+      const list = snapshot.docs.map(d => toFighter(d.id, d.data() as Record<string, unknown>));
       onData(list);
     },
     (err) => {
