@@ -1,7 +1,7 @@
 import { collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Fighter } from '../types/mma';
+import type { Fighter, MetricSnapshot } from '../types/mma';
 
 const FIGHTERS_COLLECTION = 'fighters';
 
@@ -90,6 +90,7 @@ const toFighter = (id: string, data: Record<string, unknown>): Fighter => ({
     ...(data.disciplines as Record<string, unknown> || {}),
   },
   customMetrics: (data.customMetrics as Fighter['customMetrics']) || [],
+  metricSnapshots: (data.metricSnapshots as Fighter['metricSnapshots']) || [],
   sparrings: (data.sparrings as Fighter['sparrings']) || [],
   socialMedia: data.socialMedia as Fighter['socialMedia'],
   createdAt: data.createdAt as string,
@@ -134,6 +135,39 @@ export const saveFighter = async (fighter: Fighter): Promise<void> => {
     payload.createdAt = fighter.createdAt;
   }
   await setDoc(doc(db, FIGHTERS_COLLECTION, id), payload, { merge: true });
+};
+
+const snapshotFromDiff = (oldFighter: Fighter | null, newFighter: Fighter): MetricSnapshot | null => {
+  const oldM = oldFighter?.physicalMetrics;
+  const newM = newFighter.physicalMetrics;
+  const snapshot: MetricSnapshot = { date: new Date().toISOString().slice(0, 10) };
+  let changed = false;
+
+  if (oldM?.weight !== newM.weight) { snapshot.weight = newM.weight; changed = true; }
+  if (oldM?.height !== newM.height) { snapshot.height = newM.height; changed = true; }
+  if (oldM?.restingHR !== newM.restingHR) { snapshot.restingHR = newM.restingHR; changed = true; }
+  if (oldM?.activeHR !== newM.activeHR) { snapshot.activeHR = newM.activeHR; changed = true; }
+  if (oldM?.recoveryRate !== newM.recoveryRate) { snapshot.recoveryRate = newM.recoveryRate; changed = true; }
+
+  // Custom metrics: capture all visible values for reference
+  const visibleOld = (oldFighter?.customMetrics || []).filter(m => m.visible).map(m => ({ label: m.label, value: m.value }));
+  const visibleNew = (newFighter.customMetrics || []).filter(m => m.visible).map(m => ({ label: m.label, value: m.value }));
+  if (JSON.stringify(visibleOld) !== JSON.stringify(visibleNew)) {
+    snapshot.customMetrics = visibleNew;
+    changed = true;
+  }
+
+  return changed ? snapshot : null;
+};
+
+export const saveFighterWithSnapshot = async (oldFighter: Fighter | null, newFighter: Fighter, note?: string): Promise<void> => {
+  const snapshot = snapshotFromDiff(oldFighter, newFighter);
+  if (snapshot) {
+    if (note) snapshot.note = note;
+    const snapshots = [...(newFighter.metricSnapshots || []), snapshot].slice(-50); // keep last 50
+    newFighter = { ...newFighter, metricSnapshots: snapshots };
+  }
+  await saveFighter(newFighter);
 };
 
 export const deleteFighter = async (id: string): Promise<void> => {

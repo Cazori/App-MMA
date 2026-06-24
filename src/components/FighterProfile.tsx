@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import type { Fighter, SparringVideo, CustomMetric } from '../types/mma';
+import type { MetricSnapshot } from '../types/mma';
 import { calculateBMI, getBMICategory } from '../services/storage';
-import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award, Eye, EyeOff, Activity, Gauge, Settings } from 'lucide-react';
+import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award, Eye, EyeOff, Activity, Gauge, Settings, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { BeltVisual } from './BeltVisual';
+import { MetricHistory } from './MetricHistory';
 import bjjLogo from '../assets/Logos/BJJ.png';
 import kickLogo from '../assets/Logos/Kick boxing.png';
 import thaiLogo from '../assets/Logos/Muay thai.png';
@@ -26,6 +28,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
   const [activeTab, setActiveTab] = useState<'bjj' | 'kickboxing' | 'muaythai'>('bjj');
   
   const [showMetricsManager, setShowMetricsManager] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [newMetricLabel, setNewMetricLabel] = useState('');
   const [newMetricValue, setNewMetricValue] = useState('');
   const localCustomMetrics = fighter.customMetrics || [];
@@ -210,9 +213,14 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                 <span>Métricas Físicas</span>
               </h3>
               {isEditor && (
-                <button onClick={() => setShowMetricsManager(!showMetricsManager)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }} title="Administrar estadísticas">
-                  <Settings size={18} />
-                </button>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  <button onClick={() => setShowHistory(!showHistory)} style={{ background: 'none', border: 'none', color: showHistory ? 'var(--accent-orange)' : 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }} title="Historial de métricas">
+                    <History size={18} />
+                  </button>
+                  <button onClick={() => setShowMetricsManager(!showMetricsManager)} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }} title="Administrar estadísticas">
+                    <Settings size={18} />
+                  </button>
+                </div>
               )}
             </div>
 
@@ -450,6 +458,18 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Metric History (editor only) */}
+      {showHistory && isEditor && (
+        <MetricHistory
+          snapshots={fighter.metricSnapshots || []}
+          isEditor={isEditor}
+          onAddSnapshot={(snapshot: MetricSnapshot) => {
+            const snapshots = [...(fighter.metricSnapshots || []), snapshot].slice(-50);
+            onUpdateFighter({ ...fighter, metricSnapshots: snapshots });
+          }}
+        />
+      )}
 
       {/* Sparring Videos Section */}
       <div className="glass-panel" style={{ padding: '30px', borderRadius: '24px' }}>

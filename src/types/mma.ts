@@ -38,6 +38,17 @@ export interface CustomMetric {
   visible: boolean;
 }
 
+export interface MetricSnapshot {
+  date: string; // ISO date (YYYY-MM-DD)
+  weight?: number;
+  height?: number;
+  restingHR?: number;
+  activeHR?: number;
+  recoveryRate?: number;
+  customMetrics?: { label: string; value: string }[];
+  note?: string;
+}
+
 export interface Fighter {
   id: string;
   name: string;
@@ -45,6 +56,7 @@ export interface Fighter {
   createdAt?: string;
   updatedAt?: string;
   customMetrics?: CustomMetric[];
+  metricSnapshots?: MetricSnapshot[];
   primaryStyle: PrimaryStyle;
   role?: 'atleta' | 'peleador';
   coachRole?: CoachRole;

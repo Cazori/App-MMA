@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, lazy, Suspense, useMemo } from 'react';
 import type { Fighter } from './types/mma';
 import type { PageKey } from './components/Topbar';
-import { subscribeFighters, saveFighter, deleteFighter } from './services/storage';
+import { subscribeFighters, saveFighterWithSnapshot, deleteFighter } from './services/storage';
 import { AuthProvider } from './contexts/AuthContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { ConfirmProvider } from './contexts/ConfirmContext';
@@ -71,11 +71,11 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleSaveFighter = useCallback(async (fighter: Fighter) => {
-    await saveFighter(fighter);
+    await saveFighterWithSnapshot(editingFighter, fighter);
     setSelectedFighterId(fighter.id);
     setShowForm(false);
     setEditingFighter(null);
-  }, []);
+  }, [editingFighter]);
 
   const handleDeleteFighter = useCallback(async (id: string) => {
     const ok = await confirm({ message: '¿Seguro que querés eliminar este peleador?', danger: true, confirmLabel: 'Eliminar' });
@@ -102,8 +102,9 @@ const AppContent: React.FC = () => {
   }, []);
 
   const handleUpdateFighter = useCallback(async (fighter: Fighter) => {
-    await saveFighter(fighter);
-  }, []);
+    const old = fighters.find(f => f.id === fighter.id) || null;
+    await saveFighterWithSnapshot(old, fighter);
+  }, [fighters]);
 
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
