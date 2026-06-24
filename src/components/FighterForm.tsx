@@ -4,6 +4,7 @@ import { Shield, X, Upload, Loader2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
 import { compressImage } from '../utils/compressImage';
+import { ImageCropper } from './ImageCropper';
 
 interface FighterFormProps {
   fighter?: Fighter | null;
@@ -20,6 +21,7 @@ export const FighterForm: React.FC<FighterFormProps> = ({
   const [name, setName] = useState('');
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
+  const [showCropper, setShowCropper] = useState(false);
   const [saving, setSaving] = useState(false);
   const [primaryStyle, setPrimaryStyle] = useState<PrimaryStyle>('Mixto');
   const [role, setRole] = useState<'atleta' | 'peleador'>('atleta');
@@ -89,7 +91,16 @@ export const FighterForm: React.FC<FighterFormProps> = ({
     if (file) {
       setPhotoFile(file);
       setPhotoPreview(URL.createObjectURL(file));
+      setShowCropper(true);
     }
+  };
+
+  const handleCropComplete = (croppedBlob: Blob) => {
+    const url = URL.createObjectURL(croppedBlob);
+    const croppedFile = new File([croppedBlob], photoFile?.name || 'photo.jpg', { type: 'image/jpeg' });
+    setPhotoFile(croppedFile);
+    setPhotoPreview(url);
+    setShowCropper(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -157,7 +168,15 @@ export const FighterForm: React.FC<FighterFormProps> = ({
   };
 
   return (
-    <div style={{
+    <>
+      {showCropper && photoPreview && (
+        <ImageCropper
+          image={photoPreview}
+          onCropComplete={handleCropComplete}
+          onCancel={() => { setShowCropper(false); setPhotoPreview(''); setPhotoFile(null); }}
+        />
+      )}
+      <div style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -438,5 +457,6 @@ export const FighterForm: React.FC<FighterFormProps> = ({
         </form>
       </div>
     </div>
+    </>
   );
 };
