@@ -202,3 +202,105 @@ export const exportFighterToExcel = async (fighter: Fighter) => {
   a.click();
   URL.revokeObjectURL(url);
 };
+
+const downloadWorkbook = async (wb: ExcelJS.Workbook, filename: string) => {
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+};
+
+export const exportAllToExcel = async (fighters: Fighter[]) => {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Guerreros MMA App';
+  wb.created = new Date();
+
+  // ── Sheet 1: Todos los Peleadores ──────────────────────────────────
+  const ws1 = wb.addWorksheet('Todos los Peleadores', {
+    pageSetup: { orientation: 'landscape', fitToPage: true },
+  });
+
+  // Title
+  ws1.mergeCells(1, 1, 1, 12);
+  const title = ws1.getCell('A1');
+  title.value = 'Todos los Peleadores — Guerreros de Dios MMA';
+  title.font = { bold: true, size: 14, color: { argb: HEADER_TEXT }, name: 'Inter' };
+  title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_COLOR } };
+  title.alignment = { vertical: 'middle', horizontal: 'center' };
+  title.border = border;
+
+  const allHeaders = ['Nombre', 'Estilo', 'Rol', 'Coach', 'Récord', 'Peso (kg)', 'Altura (cm)', 'FC Reposo', 'FC Actividad', 'Recuperación', 'Instagram', 'Facebook', 'Creado'];
+  ws1.columns = allHeaders.map(h => ({ header: h, width: 18 }));
+
+  allHeaders.forEach((h, i) => headerCell(ws1.getCell(2, i + 1), h));
+
+  fighters.sort((a, b) => a.name.localeCompare(b.name)).forEach((f, idx) => {
+    const r = 3 + idx;
+    const isAlt = idx % 2 === 0;
+    dataCell(ws1.getCell(r, 1), f.name, isAlt);
+    dataCell(ws1.getCell(r, 2), f.primaryStyle, isAlt);
+    dataCell(ws1.getCell(r, 3), f.role || '—', isAlt);
+    dataCell(ws1.getCell(r, 4), f.coachRole && f.coachRole !== 'ninguno' ? f.coachRole : '—', isAlt);
+    dataCell(ws1.getCell(r, 5), f.record || '—', isAlt);
+    dataCell(ws1.getCell(r, 6), f.physicalMetrics.weight, isAlt);
+    dataCell(ws1.getCell(r, 7), f.physicalMetrics.height, isAlt);
+    dataCell(ws1.getCell(r, 8), f.physicalMetrics.restingHR, isAlt);
+    dataCell(ws1.getCell(r, 9), f.physicalMetrics.activeHR ?? null, isAlt);
+    dataCell(ws1.getCell(r, 10), f.physicalMetrics.recoveryRate ?? null, isAlt);
+    dataCell(ws1.getCell(r, 11), f.socialMedia?.instagram || '—', isAlt);
+    dataCell(ws1.getCell(r, 12), f.socialMedia?.facebook || '—', isAlt);
+    dataCell(ws1.getCell(r, 13), f.createdAt ? new Date(f.createdAt).toLocaleDateString('es-AR') : '—', isAlt);
+  });
+
+  // ── Sheet 2: Historial General ──────────────────────────────────
+  const ws2 = wb.addWorksheet('Historial General', {
+    pageSetup: { orientation: 'landscape', fitToPage: true },
+  });
+
+  ws2.mergeCells(1, 1, 1, 9);
+  const title2 = ws2.getCell('A1');
+  title2.value = 'Historial General de Métricas';
+  title2.font = { bold: true, size: 14, color: { argb: HEADER_TEXT }, name: 'Inter' };
+  title2.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_COLOR } };
+  title2.alignment = { vertical: 'middle', horizontal: 'center' };
+  title2.border = border;
+
+  const snapHeaders = ['Peleador', 'Fecha', 'Peso (kg)', 'Altura (cm)', 'FC Reposo', 'FC Actividad', 'Recuperación', 'Nota'];
+  ws2.columns = snapHeaders.map(h => ({ header: h, width: snapHeaders.indexOf(h) === 0 ? 28 : 14 }));
+
+  snapHeaders.forEach((h, i) => headerCell(ws2.getCell(2, i + 1), h));
+
+  const allSnapshots = fighters.flatMap(f =>
+    (f.metricSnapshots || [])
+      .filter(s => s.weight !== undefined || s.height !== undefined || s.restingHR !== undefined || s.activeHR !== undefined || s.recoveryRate !== undefined)
+      .map(s => ({ name: f.name, ...s }))
+  ).sort((a, b) => a.date.localeCompare(b.date));
+
+  if (allSnapshots.length === 0) {
+    ws2.mergeCells(3, 1, 3, 9);
+    const noData = ws2.getCell('A3');
+    noData.value = 'Sin registros de métricas';
+    noData.font = { italic: true, color: { argb: '999999' }, size: 10, name: 'Inter' };
+    noData.alignment = { horizontal: 'center' };
+  } else {
+    allSnapshots.forEach((s, idx) => {
+      const r = 3 + idx;
+      const isAlt = idx % 2 === 0;
+      const dateStr = new Date(s.date + 'T00:00:00').toLocaleDateString('es-AR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      dataCell(ws2.getCell(r, 1), s.name, isAlt);
+      dataCell(ws2.getCell(r, 2), dateStr, isAlt);
+      dataCell(ws2.getCell(r, 3), s.weight ?? null, isAlt);
+      dataCell(ws2.getCell(r, 4), s.height ?? null, isAlt);
+      dataCell(ws2.getCell(r, 5), s.restingHR ?? null, isAlt);
+      dataCell(ws2.getCell(r, 6), s.activeHR ?? null, isAlt);
+      dataCell(ws2.getCell(r, 7), s.recoveryRate ?? null, isAlt);
+      dataCell(ws2.getCell(r, 8), s.note || null, isAlt);
+    });
+  }
+
+  await downloadWorkbook(wb, 'todos_los_peleadores_datos.xlsx');
+};

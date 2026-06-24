@@ -114,7 +114,7 @@ const AppContent: React.FC = () => {
   if (loadState === 'loading') {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-        <Topbar currentPage={currentPage} onNavigate={handleNavigate} onOpenAdmin={() => setShowAdminPanel(true)} />
+        <Topbar currentPage={currentPage} onNavigate={handleNavigate} fighters={fighters} onOpenAdmin={() => setShowAdminPanel(true)} />
         <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Loader2 size={40} className="animate-spin" style={{ color: 'var(--accent-orange)' }} />
         </div>
@@ -125,7 +125,7 @@ const AppContent: React.FC = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      <Topbar currentPage={currentPage} onNavigate={handleNavigate} onOpenAdmin={() => setShowAdminPanel(true)} />
+      <Topbar currentPage={currentPage} onNavigate={handleNavigate} fighters={fighters} onOpenAdmin={() => setShowAdminPanel(true)} />
 
       <Suspense fallback={<PageSkeleton />}>
         {currentPage === 'dashboard' && (

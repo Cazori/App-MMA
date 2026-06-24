@@ -1,5 +1,6 @@
-import { LayoutDashboard, Users, BookOpen, Building2, Info, ShoppingBag, LogOut, ShieldCheck, Shield } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Building2, Info, ShoppingBag, LogOut, ShieldCheck, Shield, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import type { Fighter } from '../types/mma';
 import gladiadorLogo from '../assets/Logos/logosinfondo.png';
 
 export type PageKey = 'dashboard' | 'fighters' | 'tutorials' | 'alianzas' | 'clubinfo' | 'shop';
@@ -8,6 +9,7 @@ interface TopbarProps {
   currentPage: PageKey;
   onNavigate: (page: PageKey) => void;
   onOpenAdmin: () => void;
+  fighters: Fighter[];
 }
 
 const NAV_ITEMS: { key: PageKey; label: string; icon: React.ReactNode }[] = [
@@ -19,7 +21,7 @@ const NAV_ITEMS: { key: PageKey; label: string; icon: React.ReactNode }[] = [
   { key: 'clubinfo', label: 'Info', icon: <Info size={18} /> },
 ];
 
-export const Topbar: React.FC<TopbarProps> = ({ currentPage, onNavigate, onOpenAdmin }) => {
+export const Topbar: React.FC<TopbarProps> = ({ currentPage, onNavigate, onOpenAdmin, fighters }) => {
   const { user, isEditor, logout } = useAuth();
 
   return (
@@ -55,6 +57,17 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, onNavigate, onOpenA
         </nav>
 
         <div className="topbar-user">
+          {isEditor && (
+            <button
+              onClick={async () => { const { exportAllToExcel } = await import('../utils/exportExcel'); exportAllToExcel(fighters); }}
+              className="topbar-logout-btn"
+              style={{ color: 'var(--accent-orange)' }}
+              title="Exportar todos los peleadores a Excel"
+            >
+              <FileSpreadsheet size={16} />
+              Exportar Todo
+            </button>
+          )}
           <button onClick={onOpenAdmin} className="topbar-logout-btn" style={{ color: isEditor ? 'var(--accent-gold)' : 'var(--text-muted)' }}>
             <Shield size={16} />
             Admin
@@ -88,6 +101,15 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, onNavigate, onOpenA
           )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {isEditor && (
+            <button
+              onClick={async () => { const { exportAllToExcel } = await import('../utils/exportExcel'); exportAllToExcel(fighters); }}
+              style={{ background: 'none', border: 'none', color: 'var(--accent-orange)', cursor: 'pointer', padding: '6px' }}
+              title="Exportar a Excel"
+            >
+              <FileSpreadsheet size={16} />
+            </button>
+          )}
           <button onClick={onOpenAdmin} style={{ background: 'none', border: 'none', color: isEditor ? 'var(--accent-gold)' : 'var(--text-muted)', cursor: 'pointer', padding: '6px' }}>
             <Shield size={18} />
           </button>
