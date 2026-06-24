@@ -31,12 +31,20 @@ export type PrimaryStyle = 'Striking' | 'Grappling' | 'Mixto';
 
 export type CoachRole = 'ninguno' | 'monitor' | 'maestro';
 
+export interface CustomMetric {
+  id: string;
+  label: string;
+  value: string;
+  visible: boolean;
+}
+
 export interface Fighter {
   id: string;
   name: string;
   photoUrl: string;
   createdAt?: string;
   updatedAt?: string;
+  customMetrics?: CustomMetric[];
   primaryStyle: PrimaryStyle;
   role?: 'atleta' | 'peleador';
   coachRole?: CoachRole;

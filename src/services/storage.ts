@@ -89,6 +89,7 @@ const toFighter = (id: string, data: Record<string, unknown>): Fighter => ({
     muaythai: { rank: '', style: '', active: false, notes: '' },
     ...(data.disciplines as Record<string, unknown> || {}),
   },
+  customMetrics: (data.customMetrics as Fighter['customMetrics']) || [],
   sparrings: (data.sparrings as Fighter['sparrings']) || [],
   socialMedia: data.socialMedia as Fighter['socialMedia'],
   createdAt: data.createdAt as string,
