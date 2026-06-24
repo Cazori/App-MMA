@@ -215,45 +215,29 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
             </div>
 
             {/* Standard metrics grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px' }}>
-              <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                <Ruler size={18} style={{ color: 'var(--text-secondary)', marginBottom: '6px' }} />
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Altura</p>
-                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.height} <span style={{ fontSize: '0.7rem', fontWeight: '500', color: 'var(--text-secondary)' }}>cm</span></p>
-              </div>
-              <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                <Scale size={18} style={{ color: 'var(--text-secondary)', marginBottom: '6px' }} />
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Peso</p>
-                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.weight} <span style={{ fontSize: '0.7rem', fontWeight: '500', color: 'var(--text-secondary)' }}>kg</span></p>
-              </div>
-              <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                <Heart size={18} style={{ color: '#ef4444', marginBottom: '6px' }} />
-                <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>FC Reposo</p>
-                <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.restingHR} <span style={{ fontSize: '0.65rem', fontWeight: '500', color: 'var(--text-secondary)' }}>BPM</span></p>
-              </div>
-              {fighter.physicalMetrics.activeHR && (
-                <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                  <Heart size={18} style={{ color: 'var(--accent-orange)', marginBottom: '6px' }} />
-                  <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>FC Actividad</p>
-                  <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.activeHR} <span style={{ fontSize: '0.65rem', fontWeight: '500', color: 'var(--text-secondary)' }}>BPM</span></p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px' }}>
+              {[
+                { icon: <Ruler size={16} style={{ color: 'var(--text-secondary)' }} />, label: 'Altura', value: `${fighter.physicalMetrics.height} cm` },
+                { icon: <Scale size={16} style={{ color: 'var(--text-secondary)' }} />, label: 'Peso', value: `${fighter.physicalMetrics.weight} kg` },
+                { icon: <Heart size={16} style={{ color: '#ef4444' }} />, label: 'FC Reposo', value: `${fighter.physicalMetrics.restingHR} BPM` },
+                ...(fighter.physicalMetrics.activeHR ? [{ icon: <Heart size={16} style={{ color: 'var(--accent-orange)' }} />, label: 'FC Actividad', value: `${fighter.physicalMetrics.activeHR} BPM` }] : []),
+                ...(fighter.physicalMetrics.recoveryRate ? [{ icon: <Gauge size={16} style={{ color: '#10b981' }} />, label: 'Recuperación', value: `${fighter.physicalMetrics.recoveryRate} BPM` }] : []),
+              ].map(m => (
+                <div key={m.label} style={{ background: 'var(--bg-input)', padding: '10px 8px', borderRadius: '12px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
+                  <div style={{ marginBottom: '4px' }}>{m.icon}</div>
+                  <p style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.02em' }}>{m.label}</p>
+                  <p style={{ fontSize: '1rem', fontWeight: '800', color: '#fff', marginTop: '2px', whiteSpace: 'nowrap' }}>{m.value}</p>
                 </div>
-              )}
-              {fighter.physicalMetrics.recoveryRate && (
-                <div style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                  <Gauge size={18} style={{ color: '#10b981', marginBottom: '6px' }} />
-                  <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>Recuperación</p>
-                  <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{fighter.physicalMetrics.recoveryRate} <span style={{ fontSize: '0.65rem', fontWeight: '500', color: 'var(--text-secondary)' }}>BPM</span></p>
-                </div>
-              )}
+              ))}
             </div>
 
             {/* Custom metrics */}
             {localCustomMetrics.filter(m => m.visible).length > 0 && (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(100px, 1fr))', gap: '10px', marginTop: '10px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '10px', marginTop: '12px', paddingTop: '12px', borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                 {localCustomMetrics.filter(m => m.visible).map(m => (
-                  <div key={m.id} style={{ background: 'var(--bg-input)', padding: '12px', borderRadius: '14px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
-                    <p style={{ fontSize: '0.7rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 'bold' }}>{m.label}</p>
-                    <p style={{ fontSize: '1.1rem', fontWeight: '800', color: '#fff', marginTop: '4px' }}>{m.value}</p>
+                  <div key={m.id} style={{ background: 'rgba(251,191,36,0.03)', padding: '10px 8px', borderRadius: '12px', textAlign: 'center', border: '1px solid rgba(251,191,36,0.08)' }}>
+                    <p style={{ fontSize: '0.6rem', color: 'var(--accent-gold)', textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: '0.02em' }}>{m.label}</p>
+                    <p style={{ fontSize: '1rem', fontWeight: '800', color: '#fff', marginTop: '2px', whiteSpace: 'nowrap' }}>{m.value}</p>
                   </div>
                 ))}
               </div>
@@ -262,9 +246,10 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
             {/* Metrics manager (editor only) */}
             {showMetricsManager && isEditor && (
               <div style={{ marginTop: '16px', padding: '16px', background: 'rgba(255,255,255,0.02)', borderRadius: '14px', border: '1px solid var(--border-color)' }}>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '12px', fontWeight: 600 }}>+ Agregar estadística personalizada</p>
                 <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-                  <input value={newMetricLabel} onChange={e => setNewMetricLabel(e.target.value)} placeholder="Etiqueta (ej: Envergadura)" className="form-input" style={{ fontSize: '0.8rem', flex: 1 }} />
-                  <input value={newMetricValue} onChange={e => setNewMetricValue(e.target.value)} placeholder="Valor (ej: 185 cm)" className="form-input" style={{ fontSize: '0.8rem', flex: 1 }} />
+                  <input value={newMetricLabel} onChange={e => setNewMetricLabel(e.target.value)} placeholder="Ej: Envergadura" className="form-input" style={{ fontSize: '0.78rem', flex: 1 }} />
+                  <input value={newMetricValue} onChange={e => setNewMetricValue(e.target.value)} placeholder="Ej: 185 cm" className="form-input" style={{ fontSize: '0.78rem', flex: 1 }} />
                   <button
                     onClick={() => {
                       if (!newMetricLabel || !newMetricValue) return;
@@ -275,32 +260,36 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                       setNewMetricValue('');
                     }}
                     className="btn btn-primary"
-                    style={{ padding: '8px 12px', fontSize: '0.8rem', flexShrink: 0 }}
+                    style={{ padding: '8px 14px', fontSize: '0.78rem', flexShrink: 0 }}
                     disabled={!newMetricLabel || !newMetricValue}
                   >
                     <Plus size={14} /> Agregar
                   </button>
                 </div>
                 {localCustomMetrics.length > 0 && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginBottom: '4px', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Estadísticas guardadas</p>
                     {localCustomMetrics.map(m => (
-                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '0.8rem' }}>
-                        <span style={{ flex: 1, color: '#fff' }}>{m.label}: {m.value}</span>
+                      <div key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 10px', background: 'var(--bg-input)', borderRadius: '8px', fontSize: '0.78rem' }}>
+                        <span style={{ flex: 1, color: '#fff' }}><strong>{m.label}:</strong> {m.value}</span>
                         <button onClick={() => {
                           const updated: Fighter = { ...fighter, customMetrics: localCustomMetrics.map(cm => cm.id === m.id ? { ...cm, visible: !cm.visible } : cm) };
                           onEditFighter(updated);
-                        }} style={{ background: 'none', border: 'none', color: m.visible ? 'var(--accent-orange)' : 'var(--text-muted)', cursor: 'pointer', padding: '2px' }} title={m.visible ? 'Ocultar' : 'Mostrar'}>
+                        }} style={{ background: 'none', border: 'none', color: m.visible ? 'var(--accent-orange)' : 'var(--text-muted)', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }} title={m.visible ? 'Ocultar' : 'Mostrar'}>
                           {m.visible ? <Eye size={14} /> : <EyeOff size={14} />}
                         </button>
                         <button onClick={() => {
                           const updated: Fighter = { ...fighter, customMetrics: localCustomMetrics.filter(cm => cm.id !== m.id) };
                           onEditFighter(updated);
-                        }} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '2px' }} title="Eliminar">
+                        }} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }} title="Eliminar">
                           <Trash2 size={14} />
                         </button>
                       </div>
                     ))}
                   </div>
+                )}
+                {localCustomMetrics.length === 0 && (
+                  <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textAlign: 'center', padding: '8px' }}>Todavía no hay estadísticas personalizadas</p>
                 )}
               </div>
             )}
