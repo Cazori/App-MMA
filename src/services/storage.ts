@@ -98,7 +98,14 @@ export const subscribeFighters = (onData: (fighters: Fighter[]) => void, onError
 
 export const saveFighter = async (fighter: Fighter): Promise<void> => {
   const { id, ...data } = fighter;
-  await setDoc(doc(db, FIGHTERS_COLLECTION, id), data, { merge: true });
+  const now = new Date().toISOString();
+  const payload = { ...data, updatedAt: now };
+  if (!fighter.createdAt) {
+    payload.createdAt = now;
+  } else {
+    payload.createdAt = fighter.createdAt;
+  }
+  await setDoc(doc(db, FIGHTERS_COLLECTION, id), payload, { merge: true });
 };
 
 export const deleteFighter = async (id: string): Promise<void> => {

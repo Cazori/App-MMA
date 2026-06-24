@@ -498,6 +498,25 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
           </div>
         )}
       </div>
+
+      {(fighter.createdAt || fighter.updatedAt) && (
+        <div style={{
+          padding: '12px 0',
+          borderTop: '1px solid var(--border-color)',
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '20px',
+          fontSize: '0.7rem',
+          color: 'var(--text-muted)',
+        }}>
+          {fighter.createdAt && (
+            <span>Creado: {new Date(fighter.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          )}
+          {fighter.updatedAt && (
+            <span>Actualizado: {new Date(fighter.updatedAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
+          )}
+        </div>
+      )}
     </div>
   );
 };

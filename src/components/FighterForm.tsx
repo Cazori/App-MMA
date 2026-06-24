@@ -3,21 +3,13 @@ import type { Fighter, PrimaryStyle, CoachRole } from '../types/mma';
 import { Shield, X, Upload, Loader2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
+import { compressImage } from '../utils/compressImage';
 
 interface FighterFormProps {
   fighter?: Fighter | null;
   onSave: (fighter: Fighter) => void;
   onClose: () => void;
 }
-
-const fileToBase64 = (file: File): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
 
 export const FighterForm: React.FC<FighterFormProps> = ({
   fighter,
@@ -108,9 +100,9 @@ export const FighterForm: React.FC<FighterFormProps> = ({
     let finalPhotoUrl = photoPreview;
     if (photoFile) {
       try {
-        finalPhotoUrl = await fileToBase64(photoFile);
+        finalPhotoUrl = await compressImage(photoFile, 300, 0.7);
       } catch (err) {
-        console.error('Error al convertir foto:', err);
+        console.error('Error al comprimir foto:', err);
         setSaving(false);
         return;
       }

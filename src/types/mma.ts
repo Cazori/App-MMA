@@ -35,6 +35,8 @@ export interface Fighter {
   id: string;
   name: string;
   photoUrl: string;
+  createdAt?: string;
+  updatedAt?: string;
   primaryStyle: PrimaryStyle;
   role?: 'atleta' | 'peleador';
   coachRole?: CoachRole;

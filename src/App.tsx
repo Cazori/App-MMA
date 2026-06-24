@@ -13,18 +13,14 @@ import { AdminPanel } from './components/AdminPanel';
 import { useToast } from './contexts/ToastContext';
 import { useConfirm } from './contexts/ConfirmContext';
 import { Shield, Menu, Loader2 } from 'lucide-react';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { PageSkeleton } from './components/Skeleton';
 
 const Dashboard = lazy(() => import('./components/Dashboard').then(m => ({ default: m.Dashboard })));
 const SubClubs = lazy(() => import('./components/SubClubs').then(m => ({ default: m.SubClubs })));
 const ClubInfoPage = lazy(() => import('./components/ClubInfo').then(m => ({ default: m.ClubInfoPage })));
 const Tutorials = lazy(() => import('./components/Tutorials').then(m => ({ default: m.Tutorials })));
 const Shop = lazy(() => import('./components/Shop').then(m => ({ default: m.Shop })));
-
-const PageLoader: React.FC = () => (
-  <div style={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '60px' }}>
-    <Loader2 size={32} className="animate-spin" style={{ color: 'var(--accent-orange)' }} />
-  </div>
-);
 
 type LoadState = 'loading' | 'ready';
 
@@ -126,10 +122,10 @@ const AppContent: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Topbar currentPage={currentPage} onNavigate={handleNavigate} onOpenAdmin={() => setShowAdminPanel(true)} />
 
-      <Suspense fallback={<PageLoader />}>
+      <Suspense fallback={<PageSkeleton />}>
         {currentPage === 'dashboard' && (
           <main className="main-content" style={{ height: 'auto' }}>
-            <Dashboard fighters={fighters} onSelectFighter={handleSelectFighter} onNavigate={handleNavigate} />
+            <ErrorBoundary><Dashboard fighters={fighters} onSelectFighter={handleSelectFighter} onNavigate={handleNavigate} /></ErrorBoundary>
           </main>
         )}
 
@@ -157,11 +153,13 @@ const AppContent: React.FC = () => {
             </aside>
             <main className="main-content">
               {selectedFighter ? (
-                <FighterProfile
-                  fighter={selectedFighter}
-                  onEditFighter={handleEditFighter}
-                  onDeleteFighter={handleDeleteFighter}
-                />
+                <ErrorBoundary>
+                  <FighterProfile
+                    fighter={selectedFighter}
+                    onEditFighter={handleEditFighter}
+                    onDeleteFighter={handleDeleteFighter}
+                  />
+                </ErrorBoundary>
               ) : (
                 <div style={{
                   display: 'flex',
@@ -186,25 +184,25 @@ const AppContent: React.FC = () => {
 
         {currentPage === 'tutorials' && (
           <main className="main-content" style={{ height: 'auto' }}>
-            <Tutorials />
+            <ErrorBoundary><Tutorials /></ErrorBoundary>
           </main>
         )}
 
         {currentPage === 'alianzas' && (
           <main className="main-content" style={{ height: 'auto' }}>
-            <SubClubs />
+            <ErrorBoundary><SubClubs /></ErrorBoundary>
           </main>
         )}
 
         {currentPage === 'shop' && (
           <main className="main-content" style={{ height: 'auto' }}>
-            <Shop />
+            <ErrorBoundary><Shop /></ErrorBoundary>
           </main>
         )}
 
         {currentPage === 'clubinfo' && (
           <main className="main-content" style={{ height: 'auto' }}>
-            <ClubInfoPage fightersCount={fighters.length} coachesCount={fighters.filter(f => f.coachRole === 'monitor' || f.coachRole === 'maestro').length} />
+            <ErrorBoundary><ClubInfoPage fightersCount={fighters.length} coachesCount={fighters.filter(f => f.coachRole === 'monitor' || f.coachRole === 'maestro').length} /></ErrorBoundary>
           </main>
         )}
       </Suspense>
