@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import type { Fighter, SparringVideo, CustomMetric } from '../types/mma';
 import type { MetricSnapshot } from '../types/mma';
 import { calculateBMI, getBMICategory } from '../services/storage';
-import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award, Eye, EyeOff, Activity, Gauge, Settings, History } from 'lucide-react';
+import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award, Eye, EyeOff, Activity, Gauge, Settings, History, FileSpreadsheet } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { BeltVisual } from './BeltVisual';
@@ -222,6 +222,9 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                   </button>
                 </div>
               )}
+              <button onClick={async () => { const { exportFighterToExcel } = await import('../utils/exportExcel'); exportFighterToExcel(fighter); }} style={{ background: 'none', border: 'none', color: 'var(--text-secondary)', cursor: 'pointer', padding: '4px' }} title="Exportar a Excel">
+                <FileSpreadsheet size={18} />
+              </button>
             </div>
 
             {/* Standard metrics grid */}
