@@ -11,12 +11,14 @@ import thaiLogo from '../assets/Logos/Muay thai.png';
 interface FighterProfileProps {
   fighter: Fighter;
   onEditFighter: (fighter: Fighter) => void;
+  onUpdateFighter: (fighter: Fighter) => Promise<void>;
   onDeleteFighter: (id: string) => void;
 }
 
 export const FighterProfile: React.FC<FighterProfileProps> = ({
   fighter,
   onEditFighter,
+  onUpdateFighter,
   onDeleteFighter,
 }) => {
   const { isEditor } = useAuth();
@@ -255,7 +257,7 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                       if (!newMetricLabel || !newMetricValue) return;
                       const metric: CustomMetric = { id: `m-${Date.now()}`, label: newMetricLabel, value: newMetricValue, visible: true };
                       const updated: Fighter = { ...fighter, customMetrics: [...localCustomMetrics, metric] };
-                      onEditFighter(updated);
+                      onUpdateFighter(updated);
                       setNewMetricLabel('');
                       setNewMetricValue('');
                     }}
@@ -274,13 +276,13 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
                         <span style={{ flex: 1, color: '#fff' }}><strong>{m.label}:</strong> {m.value}</span>
                         <button onClick={() => {
                           const updated: Fighter = { ...fighter, customMetrics: localCustomMetrics.map(cm => cm.id === m.id ? { ...cm, visible: !cm.visible } : cm) };
-                          onEditFighter(updated);
+                          onUpdateFighter(updated);
                         }} style={{ background: 'none', border: 'none', color: m.visible ? 'var(--accent-orange)' : 'var(--text-muted)', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }} title={m.visible ? 'Ocultar' : 'Mostrar'}>
                           {m.visible ? <Eye size={14} /> : <EyeOff size={14} />}
                         </button>
                         <button onClick={() => {
                           const updated: Fighter = { ...fighter, customMetrics: localCustomMetrics.filter(cm => cm.id !== m.id) };
-                          onEditFighter(updated);
+                          onUpdateFighter(updated);
                         }} style={{ background: 'none', border: 'none', color: 'var(--color-danger)', cursor: 'pointer', padding: '4px', borderRadius: '6px', display: 'flex' }} title="Eliminar">
                           <Trash2 size={14} />
                         </button>

@@ -101,6 +101,10 @@ const AppContent: React.FC = () => {
     setShowForm(true);
   }, []);
 
+  const handleUpdateFighter = useCallback(async (fighter: Fighter) => {
+    await saveFighter(fighter);
+  }, []);
+
   const handleCloseForm = useCallback(() => {
     setShowForm(false);
     setEditingFighter(null);
@@ -157,6 +161,7 @@ const AppContent: React.FC = () => {
                   <FighterProfile
                     fighter={selectedFighter}
                     onEditFighter={handleEditFighter}
+                    onUpdateFighter={handleUpdateFighter}
                     onDeleteFighter={handleDeleteFighter}
                   />
                 </ErrorBoundary>
