@@ -156,10 +156,32 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '2.2rem', color: '#fff', fontWeight: '800', letterSpacing: '-0.02em' }}>{fighter.name}</h1>
             {fighter.coachRole === 'monitor' && (
-              <span className="badge badge-blue" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>Monitor</span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.04em',
+                padding: '6px 16px', borderRadius: '20px',
+                background: 'linear-gradient(135deg, rgba(59,130,246,0.2), rgba(59,130,246,0.05))',
+                border: '1px solid rgba(59,130,246,0.35)',
+                color: '#60a5fa', textTransform: 'uppercase',
+                boxShadow: '0 0 12px rgba(59,130,246,0.15)',
+              }}>
+                <Award size={14} />
+                Monitor
+              </span>
             )}
             {fighter.coachRole === 'maestro' && (
-              <span className="badge badge-red" style={{ fontSize: '0.75rem', padding: '4px 12px' }}>Maestro</span>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '6px',
+                fontSize: '0.78rem', fontWeight: 700, letterSpacing: '0.04em',
+                padding: '6px 16px', borderRadius: '20px',
+                background: 'linear-gradient(135deg, rgba(251,191,36,0.2), rgba(251,191,36,0.05))',
+                border: '1px solid rgba(251,191,36,0.4)',
+                color: '#fbbf24', textTransform: 'uppercase',
+                boxShadow: '0 0 14px rgba(251,191,36,0.2)',
+              }}>
+                <Award size={14} />
+                Maestro
+              </span>
             )}
           </div>
           <p style={{ color: 'var(--accent-orange)', fontWeight: '700', fontSize: '1.1rem', marginTop: '4px', letterSpacing: '0.02em', textTransform: 'uppercase' }}>

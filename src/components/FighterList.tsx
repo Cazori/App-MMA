@@ -72,25 +72,34 @@ export const FighterList: React.FC<FighterListProps> = ({
         </p>
         
         {/* Sub-clubs interactive quick info */}
-        <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
-          <img 
-            src={bjjLogo} 
-            alt="Gator Grip (BJJ)" 
-            title="Gator Grip (BJJ)" 
-            style={{ width: '28px', height: '28px', objectFit: 'contain', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', padding: '2px', border: '1px solid rgba(167, 139, 250, 0.2)' }} 
-          />
-          <img 
-            src={kickLogo} 
-            alt="ACKB (Kickboxing)" 
-            title="Asociación Colombiana de Kick Boxing" 
-            style={{ width: '28px', height: '28px', objectFit: 'contain', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', padding: '2px', border: '1px solid rgba(244, 63, 94, 0.2)' }} 
-          />
-          <img 
-            src={thaiLogo} 
-            alt="Am. Conf. (Muay Thai)" 
-            title="American Confederation (Muay Thai)" 
-            style={{ width: '28px', height: '28px', objectFit: 'contain', borderRadius: '50%', background: 'rgba(255,255,255,0.03)', padding: '2px', border: '1px solid rgba(56, 189, 248, 0.2)' }} 
-          />
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginTop: '20px', padding: '12px 0', borderTop: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <img 
+              src={bjjLogo} 
+              alt="Gator Grip (BJJ)" 
+              title="Gator Grip (BJJ)" 
+              style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '50%', background: 'rgba(167,139,250,0.08)', padding: '4px', border: '1px solid rgba(167, 139, 250, 0.3)', boxShadow: '0 0 12px rgba(167,139,250,0.15)' }} 
+            />
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>BJJ</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <img 
+              src={kickLogo} 
+              alt="ACKB (Kickboxing)" 
+              title="Asociación Colombiana de Kick Boxing" 
+              style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '50%', background: 'rgba(244,63,94,0.08)', padding: '4px', border: '1px solid rgba(244, 63, 94, 0.3)', boxShadow: '0 0 12px rgba(244,63,94,0.15)' }} 
+            />
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>KICK</span>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+            <img 
+              src={thaiLogo} 
+              alt="Am. Conf. (Muay Thai)" 
+              title="American Confederation (Muay Thai)" 
+              style={{ width: '44px', height: '44px', objectFit: 'contain', borderRadius: '50%', background: 'rgba(56,189,248,0.08)', padding: '4px', border: '1px solid rgba(56, 189, 248, 0.3)', boxShadow: '0 0 12px rgba(56,189,248,0.15)' }} 
+            />
+            <span style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>MUAY</span>
+          </div>
         </div>
       </div>
 
