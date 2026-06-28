@@ -1,10 +1,14 @@
 import type { PageKey } from './Topbar';
-import type { Fighter } from '../types/mma';
+import type { Fighter, Payment } from '../types/mma';
 import { SUB_CLUBS, TUTORIALS, ALERTS, CLUB_INFO, bjjLogo, kickLogo, thaiLogo } from '../services/clubData';
 import { FighterCard } from './FighterCard';
 import { SubClubCard } from './SubClubCard';
 import { TutorialCard } from './TutorialCard';
-import { Calendar, Bell, MapPin, Phone, Mail, Globe, AtSign, Shield } from 'lucide-react';
+import { Calendar, Bell, MapPin, Phone, Mail, Globe, AtSign, Shield, DollarSign, Loader2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { subscribePaymentsByPeriod, subscribePaymentConfig } from '../services/storage';
+import { getCurrentPeriod, formatPeriod, computePaymentCounts, getPeriodRange } from '../utils/payments';
+import type { PaymentConfig } from '../types/mma';
 
 interface DashboardProps {
   fighters: Fighter[];
@@ -23,6 +27,40 @@ const DAY_SCHEDULE = [
 ];
 
 export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter, onNavigate }) => {
+  // ── Payment widget state ────────────────────────────────────────────
+  const [payPeriod, setPayPeriod] = useState(getCurrentPeriod());
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payConfig, setPayConfig] = useState<PaymentConfig>({ dueDay: 10, defaultAmount: 15000 });
+  const [payLoading, setPayLoading] = useState(true);
+  const [payError, setPayError] = useState(false);
+
+  useEffect(() => {
+    setPayLoading(true);
+    setPayError(false);
+    const unsub = subscribePaymentsByPeriod(payPeriod, (list) => {
+      setPayments(list);
+      setPayLoading(false);
+    }, () => {
+      setPayError(true);
+      setPayLoading(false);
+    });
+    return unsub;
+  }, [payPeriod]);
+
+  useEffect(() => {
+    const unsub = subscribePaymentConfig((config) => {
+      setPayConfig(config);
+    });
+    return unsub;
+  }, []);
+
+  const payCounts = useMemo(
+    () => computePaymentCounts(fighters, payments, payPeriod, payConfig.dueDay),
+    [fighters, payments, payPeriod, payConfig.dueDay]
+  );
+
+  const payPeriods = getPeriodRange(3, 3);
+  const hasFighters = fighters.length > 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '32px' }}>
@@ -36,6 +74,76 @@ export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter,
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
+
+        {/* Widget: Pagos */}
+        <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <DollarSign size={18} style={{ color: 'var(--accent-orange)' }} />
+              Pagos
+            </h3>
+            <button
+              onClick={() => onNavigate('pagos')}
+              className="btn btn-secondary"
+              style={{ padding: '6px 14px', fontSize: '0.75rem' }}
+            >
+              Ver todos
+            </button>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
+            <select
+              value={payPeriod}
+              onChange={(e) => setPayPeriod(e.target.value)}
+              className="form-input"
+              style={{ fontSize: '0.8rem', padding: '6px 10px', width: 'auto' }}
+            >
+              {payPeriods.map((p) => (
+                <option key={p} value={p}>{formatPeriod(p)}</option>
+              ))}
+            </select>
+            {payError && (
+              <button
+                onClick={() => { setPayError(false); setPayLoading(true); }}
+                className="btn btn-secondary"
+                style={{ fontSize: '0.7rem', padding: '4px 8px' }}
+                title="Reintentar"
+              >
+                Error al cargar pagos. Toca para reintentar.
+              </button>
+            )}
+          </div>
+
+          {payLoading ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
+              <Loader2 size={24} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
+            </div>
+          ) : !hasFighters ? (
+            <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '12px' }}>
+              No hay luchadores activos en este período
+            </p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+              {[
+                { label: 'Pagados', value: payCounts.paid, color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)' },
+                { label: 'Pendientes', value: payCounts.pending, color: 'var(--color-warning)', bg: 'rgba(234,179,8,0.1)' },
+                { label: 'Vencidos', value: payCounts.overdue, color: 'var(--color-danger)', bg: 'rgba(239,68,68,0.1)' },
+                { label: 'Cancelados', value: payCounts.cancelled, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.03)' },
+              ].map((c) => (
+                <div key={c.label} style={{
+                  padding: '14px 12px',
+                  borderRadius: '12px',
+                  background: c.bg,
+                  textAlign: 'center',
+                  border: `1px solid ${c.color}20`,
+                }}>
+                  <p style={{ fontSize: '0.65rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.03em' }}>{c.label}</p>
+                  <p style={{ fontSize: '1.4rem', fontWeight: 800, color: c.color, marginTop: '4px' }}>{c.value}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Widget: Atletas */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px' }}>

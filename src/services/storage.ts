@@ -1,7 +1,7 @@
-import { collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot, addDoc, Timestamp, where } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Fighter, MetricSnapshot } from '../types/mma';
+import type { Fighter, MetricSnapshot, Payment, FollowUp, PaymentConfig } from '../types/mma';
 
 const FIGHTERS_COLLECTION = 'fighters';
 
@@ -180,6 +180,202 @@ const seedFighters = async (): Promise<void> => {
     const { id, ...data } = f;
     await setDoc(doc(db, FIGHTERS_COLLECTION, id), data);
   }
+};
+
+// ─── Payments CRUD ───────────────────────────────────────────────────────────
+
+const PAYMENTS_COLLECTION = 'payments';
+
+const toPayment = (id: string, data: Record<string, unknown>): Payment => ({
+  id,
+  fighterId: (data.fighterId as string) || '',
+  period: (data.period as string) || '',
+  amount: (data.amount as number) || 0,
+  method: (data.method as Payment['method']) || 'cash',
+  status: (data.status as Payment['status']) || 'paid',
+  notes: (data.notes as string) || undefined,
+  paidAt: ((data.paidAt as Timestamp)?.toDate?.()?.toISOString?.()) || (data.paidAt as string) || new Date().toISOString(),
+  cancelledAt: (data.cancelledAt as Timestamp)?.toDate?.()?.toISOString?.() || (data.cancelledAt as string) || undefined,
+  cancelledBy: (data.cancelledBy as string) || undefined,
+  createdAt: ((data.createdAt as Timestamp)?.toDate?.()?.toISOString?.()) || (data.createdAt as string) || new Date().toISOString(),
+  updatedAt: ((data.updatedAt as Timestamp)?.toDate?.()?.toISOString?.()) || (data.updatedAt as string) || new Date().toISOString(),
+  history: (data.history as Payment['history']) || undefined,
+});
+
+export const subscribePayments = (
+  onData: (payments: Payment[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe => {
+  const q = query(
+    collection(db, PAYMENTS_COLLECTION),
+    orderBy('period', 'desc'),
+    orderBy('fighterId')
+  );
+  return onSnapshot(q,
+    (snapshot) => {
+      const list = snapshot.docs.map(d => toPayment(d.id, d.data() as Record<string, unknown>));
+      onData(list);
+    },
+    (err) => {
+      console.error('Payments subscribe error:', err);
+      onError?.(err);
+    }
+  );
+};
+
+export const subscribePaymentsByPeriod = (
+  period: string,
+  onData: (payments: Payment[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe => {
+  const q = query(
+    collection(db, PAYMENTS_COLLECTION),
+    where('period', '==', period)
+  );
+  return onSnapshot(q,
+    (snapshot) => {
+      const list = snapshot.docs.map(d => toPayment(d.id, d.data() as Record<string, unknown>));
+      onData(list);
+    },
+    (err) => {
+      console.error('Payments by period subscribe error:', err);
+      onError?.(err);
+    }
+  );
+};
+
+export const savePayment = async (payment: Payment): Promise<void> => {
+  const { id, history, ...data } = payment;
+  const now = new Date().toISOString();
+  const payload: Record<string, unknown> = {
+    ...data,
+    paidAt: Timestamp.fromDate(new Date(data.paidAt)),
+    createdAt: data.createdAt ? Timestamp.fromDate(new Date(data.createdAt)) : Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  };
+  if (history && history.length > 0) {
+    payload.history = history;
+  }
+  if (data.cancelledAt) {
+    payload.cancelledAt = Timestamp.fromDate(new Date(data.cancelledAt));
+  }
+  await setDoc(doc(db, PAYMENTS_COLLECTION, id), payload, { merge: true });
+};
+
+export const updatePayment = async (
+  id: string,
+  updates: Partial<Payment>,
+  editEntry?: Payment['history'][number]
+): Promise<void> => {
+  const docRef = doc(db, PAYMENTS_COLLECTION, id);
+  const payload: Record<string, unknown> = {
+    ...updates,
+    updatedAt: Timestamp.now(),
+  };
+  // Convert Timestamp fields
+  if (updates.paidAt) payload.paidAt = Timestamp.fromDate(new Date(updates.paidAt));
+  if (updates.cancelledAt) payload.cancelledAt = Timestamp.fromDate(new Date(updates.cancelledAt));
+  // Handle history push
+  if (editEntry) {
+    const existingDoc = await getDocs(query(collection(db, PAYMENTS_COLLECTION), where('__name__', '==', id)));
+    if (!existingDoc.empty) {
+      const currentHistory = (existingDoc.docs[0].data().history as Payment['history']) || [];
+      payload.history = [...currentHistory, editEntry].slice(-20);
+    } else {
+      payload.history = [editEntry];
+    }
+  }
+  await setDoc(docRef, payload, { merge: true });
+};
+
+export const cancelPayment = async (id: string, cancelledBy: string): Promise<void> => {
+  const docRef = doc(db, PAYMENTS_COLLECTION, id);
+  await setDoc(docRef, {
+    status: 'cancelled',
+    cancelledAt: Timestamp.now(),
+    cancelledBy,
+    updatedAt: Timestamp.now(),
+  }, { merge: true });
+};
+
+export const deletePayment = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, PAYMENTS_COLLECTION, id));
+};
+
+export const saveFollowUp = async (paymentId: string, followUp: FollowUp): Promise<void> => {
+  const now = Timestamp.now();
+  const payload: Record<string, unknown> = {
+    status: followUp.status,
+    updatedAt: now,
+  };
+  if (followUp.note) payload.note = followUp.note;
+  if (followUp.contactedAt) payload.contactedAt = Timestamp.fromDate(new Date(followUp.contactedAt));
+
+  const followUpId = followUp.id || `fu-${Date.now()}`;
+  await setDoc(doc(db, PAYMENTS_COLLECTION, paymentId, 'followUp', followUpId), payload, { merge: true });
+};
+
+export const subscribeFollowUp = (
+  paymentId: string,
+  onData: (followUps: FollowUp[]) => void,
+  onError?: (err: Error) => void
+): Unsubscribe => {
+  const q = query(
+    collection(db, PAYMENTS_COLLECTION, paymentId, 'followUp'),
+    orderBy('updatedAt', 'desc')
+  );
+  return onSnapshot(q,
+    (snapshot) => {
+      const list = snapshot.docs.map(d => {
+        const data = d.data() as Record<string, unknown>;
+        return {
+          id: d.id,
+          status: (data.status as FollowUp['status']) || 'pending-contact',
+          note: (data.note as string) || undefined,
+          contactedAt: (data.contactedAt as Timestamp)?.toDate?.()?.toISOString?.() || undefined,
+          updatedAt: (data.updatedAt as Timestamp)?.toDate?.()?.toISOString?.() || new Date().toISOString(),
+        } as FollowUp;
+      });
+      onData(list);
+    },
+    (err) => {
+      console.error('FollowUp subscribe error:', err);
+      onError?.(err);
+    }
+  );
+};
+
+// ─── Payment Config ──────────────────────────────────────────────────────────
+
+export const subscribePaymentConfig = (
+  onData: (config: PaymentConfig) => void,
+  onError?: (err: Error) => void
+): Unsubscribe => {
+  const docRef = doc(db, 'config', 'payments');
+  return onSnapshot(docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as Record<string, unknown>;
+        onData({
+          dueDay: (data.dueDay as number) || 10,
+          defaultAmount: (data.defaultAmount as number) || 15000,
+        });
+      } else {
+        onData({ dueDay: 10, defaultAmount: 15000 });
+      }
+    },
+    (err) => {
+      console.error('PaymentConfig subscribe error:', err);
+      onError?.(err);
+    }
+  );
+};
+
+export const savePaymentConfig = async (config: PaymentConfig): Promise<void> => {
+  await setDoc(doc(db, 'config', 'payments'), {
+    ...config,
+    lastUpdated: Timestamp.now(),
+  }, { merge: true });
 };
 
 export const calculateBMI = (weight: number, height: number): number => {

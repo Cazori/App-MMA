@@ -1,0 +1,13 @@
+change: payment-module
+created: 2026-06-28
+status: apply_done
+phases:
+  explore: completed
+  propose: completed
+  spec: completed
+  design: completed
+  tasks: completed
+  apply: completed
+  verify: pending
+  archive: pending
+next_recommended: verify

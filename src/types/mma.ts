@@ -163,3 +163,45 @@ export interface ClubAlert {
   date?: string;
   color: string;      // CSS color del borde del alert
 }
+
+// ─── Payments ────────────────────────────────────────────────────────────────
+
+export type PaymentMethod = 'cash' | 'transfer' | 'nequi' | 'daviplata';
+export type PaymentStatus = 'paid' | 'cancelled';
+
+export interface PaymentEdit {
+  field: string;
+  from: unknown;
+  to: unknown;
+  at: string;
+  by: string;
+}
+
+export interface Payment {
+  id: string;
+  fighterId: string;
+  period: string;           // "2026-06" (YYYY-MM)
+  amount: number;           // COP, integer
+  method: PaymentMethod;
+  status: PaymentStatus;
+  notes?: string;
+  paidAt: string;           // ISO date
+  cancelledAt?: string;     // ISO date (if cancelled)
+  cancelledBy?: string;     // user ID (if cancelled)
+  createdAt: string;
+  updatedAt: string;
+  history?: PaymentEdit[];  // last 20 edits
+}
+
+export interface FollowUp {
+  id?: string;
+  status: 'pending-contact' | 'contacted';
+  note?: string;
+  contactedAt?: string;
+  updatedAt: string;
+}
+
+export interface PaymentConfig {
+  dueDay: number;           // default 10
+  defaultAmount: number;    // default 15000
+}

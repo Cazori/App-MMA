@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import type { Fighter, SparringVideo, CustomMetric } from '../types/mma';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Fighter, SparringVideo, CustomMetric, Payment } from '../types/mma';
 import type { MetricSnapshot } from '../types/mma';
-import { calculateBMI, getBMICategory } from '../services/storage';
-import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award, Eye, EyeOff, Activity, Gauge, Settings, History, FileSpreadsheet } from 'lucide-react';
+import { calculateBMI, getBMICategory, subscribePaymentsByPeriod } from '../services/storage';
+import { Heart, Scale, Ruler, Video, Trash2, Edit, Plus, Calendar, AlertCircle, Award, Eye, EyeOff, Activity, Gauge, Settings, History, FileSpreadsheet, DollarSign, CheckCircle, XCircle, Clock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { BeltVisual } from './BeltVisual';
 import { MetricHistory } from './MetricHistory';
+import { getCurrentPeriod, formatPeriod, computePaymentStatus } from '../utils/payments';
 import bjjLogo from '../assets/Logos/BJJ.png';
 import kickLogo from '../assets/Logos/Kick boxing.png';
 import thaiLogo from '../assets/Logos/Muay thai.png';
@@ -26,6 +27,26 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
   const { isEditor } = useAuth();
   const { confirm } = useConfirm();
   const [activeTab, setActiveTab] = useState<'bjj' | 'kickboxing' | 'muaythai'>('bjj');
+
+  // ── Payment state ───────────────────────────────────────────────────
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [payPeriod, setPayPeriod] = useState(getCurrentPeriod());
+  useEffect(() => {
+    const unsub = subscribePaymentsByPeriod(payPeriod, (list) => {
+      setPayments(list);
+    });
+    return unsub;
+  }, [payPeriod]);
+
+  const fighterStatus = useMemo(
+    () => computePaymentStatus(fighter, payments, payPeriod, 10),
+    [fighter, payments, payPeriod]
+  );
+
+  const fighterPayments = useMemo(
+    () => payments.filter((p) => p.fighterId === fighter.id),
+    [payments, fighter.id]
+  );
   
   const [showMetricsManager, setShowMetricsManager] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -473,6 +494,120 @@ export const FighterProfile: React.FC<FighterProfileProps> = ({
           }}
         />
       )}
+
+      {/* Payment History Section */}
+      <div className="glass-panel" style={{ padding: '24px', borderRadius: '24px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '10px' }}>
+          <h3 style={{ fontSize: '1.2rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <DollarSign size={20} style={{ color: 'var(--accent-orange)' }} />
+            Historial de Pagos
+          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {/* Status Badge */}
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              padding: '6px 14px',
+              borderRadius: '20px',
+              fontSize: '0.85rem',
+              fontWeight: 700,
+              background: fighterStatus === 'paid' ? 'rgba(16,185,129,0.15)' :
+                          fighterStatus === 'pending' ? 'rgba(234,179,8,0.15)' :
+                          fighterStatus === 'overdue' ? 'rgba(239,68,68,0.15)' :
+                          'rgba(255,255,255,0.05)',
+              color: fighterStatus === 'paid' ? 'var(--color-success)' :
+                     fighterStatus === 'pending' ? 'var(--color-warning)' :
+                     fighterStatus === 'overdue' ? 'var(--color-danger)' :
+                     'var(--text-muted)',
+            }}>
+              {fighterStatus === 'paid' && <CheckCircle size={14} />}
+              {fighterStatus === 'pending' && <Clock size={14} />}
+              {fighterStatus === 'overdue' && <AlertTriangle size={14} />}
+              {fighterStatus === 'cancelled' && <XCircle size={14} />}
+              {fighterStatus === 'paid' ? 'Al día' :
+               fighterStatus === 'pending' ? 'Pendiente' :
+               fighterStatus === 'overdue' ? 'Vencido' :
+               'Cancelado'}
+            </span>
+            <select
+              value={payPeriod}
+              onChange={(e) => setPayPeriod(e.target.value)}
+              className="form-input"
+              style={{ fontSize: '0.8rem', padding: '6px 10px', width: 'auto' }}
+            >
+              {[getCurrentPeriod(), ...['2026-05', '2026-04', '2026-03']].map((p) => (
+                <option key={p} value={p}>{formatPeriod(p)}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {fighterPayments.length === 0 ? (
+          <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)', fontSize: '0.9rem', background: 'rgba(255,255,255,0.01)', borderRadius: '12px' }}>
+            <DollarSign size={32} style={{ opacity: 0.3, marginBottom: '8px' }} />
+            <p>No hay pagos registrados para {formatPeriod(payPeriod)}</p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {fighterPayments.sort((a, b) => b.period.localeCompare(a.period)).map((p) => (
+              <div key={p.id} className="glass-card" style={{
+                padding: '14px 16px',
+                borderRadius: '12px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px',
+                opacity: p.status === 'cancelled' ? 0.5 : 1,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span style={{
+                    padding: '4px 10px',
+                    borderRadius: '8px',
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: p.status === 'paid' ? 'rgba(16,185,129,0.15)' : 'rgba(255,255,255,0.05)',
+                    color: p.status === 'paid' ? 'var(--color-success)' : 'var(--text-muted)',
+                  }}>
+                    {formatPeriod(p.period)}
+                  </span>
+                  <span style={{ color: '#fff', fontWeight: 700, fontSize: '0.95rem' }}>
+                    ${p.amount.toLocaleString('es-CO')}
+                  </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                    {p.method === 'cash' ? 'Efectivo' :
+                     p.method === 'transfer' ? 'Transferencia' :
+                     p.method === 'nequi' ? 'Nequi' : 'Daviplata'}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '4px',
+                    padding: '3px 10px', borderRadius: '20px',
+                    fontSize: '0.75rem', fontWeight: 700,
+                    background: p.status === 'paid' ? 'rgba(16,185,129,0.1)' :
+                                p.status === 'cancelled' ? 'rgba(255,255,255,0.05)' : 'rgba(234,179,8,0.1)',
+                    color: p.status === 'paid' ? 'var(--color-success)' :
+                           p.status === 'cancelled' ? 'var(--text-muted)' : 'var(--color-warning)',
+                  }}>
+                    {p.status === 'paid' ? <CheckCircle size={12} /> : <XCircle size={12} />}
+                    {p.status === 'paid' ? 'Pagado' : 'Cancelado'}
+                  </span>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                    {new Date(p.paidAt).toLocaleDateString('es-AR')}
+                  </span>
+                  {p.cancelledAt && (
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>
+                      · Cancelado {new Date(p.cancelledAt).toLocaleDateString('es-AR')}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Sparring Videos Section */}
       <div className="glass-panel" style={{ padding: '30px', borderRadius: '24px' }}>

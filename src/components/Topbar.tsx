@@ -1,9 +1,9 @@
-import { LayoutDashboard, Users, BookOpen, Building2, Info, ShoppingBag, LogOut, ShieldCheck, Shield, FileSpreadsheet } from 'lucide-react';
+import { LayoutDashboard, Users, BookOpen, Building2, Info, ShoppingBag, LogOut, ShieldCheck, Shield, FileSpreadsheet, DollarSign } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import type { Fighter } from '../types/mma';
 import gladiadorLogo from '../assets/Logos/logosinfondo.png';
 
-export type PageKey = 'dashboard' | 'fighters' | 'tutorials' | 'alianzas' | 'clubinfo' | 'shop';
+export type PageKey = 'dashboard' | 'fighters' | 'tutorials' | 'alianzas' | 'clubinfo' | 'shop' | 'pagos';
 
 interface TopbarProps {
   currentPage: PageKey;
@@ -15,6 +15,7 @@ interface TopbarProps {
 const NAV_ITEMS: { key: PageKey; label: string; icon: React.ReactNode }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { key: 'fighters', label: 'Atletas', icon: <Users size={18} /> },
+  { key: 'pagos', label: 'Pagos', icon: <DollarSign size={18} /> },
   { key: 'tutorials', label: 'Tutoriales', icon: <BookOpen size={18} /> },
   { key: 'alianzas', label: 'Alianzas', icon: <Building2 size={18} /> },
   { key: 'shop', label: 'Tienda', icon: <ShoppingBag size={18} /> },

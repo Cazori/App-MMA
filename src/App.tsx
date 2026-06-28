@@ -21,6 +21,7 @@ const SubClubs = lazy(() => import('./components/SubClubs').then(m => ({ default
 const ClubInfoPage = lazy(() => import('./components/ClubInfo').then(m => ({ default: m.ClubInfoPage })));
 const Tutorials = lazy(() => import('./components/Tutorials').then(m => ({ default: m.Tutorials })));
 const Shop = lazy(() => import('./components/Shop').then(m => ({ default: m.Shop })));
+const PaymentPanel = lazy(() => import('./components/PaymentPanel').then(m => ({ default: m.PaymentPanel })));
 
 type LoadState = 'loading' | 'ready';
 
@@ -209,6 +210,12 @@ const AppContent: React.FC = () => {
         {currentPage === 'clubinfo' && (
           <main className="main-content" style={{ height: 'auto' }}>
             <ErrorBoundary><ClubInfoPage fightersCount={fighters.length} coachesCount={fighters.filter(f => f.coachRole === 'monitor' || f.coachRole === 'maestro').length} /></ErrorBoundary>
+          </main>
+        )}
+
+        {currentPage === 'pagos' && (
+          <main className="main-content" style={{ height: 'auto' }}>
+            <ErrorBoundary><PaymentPanel fighters={fighters} /></ErrorBoundary>
           </main>
         )}
       </Suspense>
