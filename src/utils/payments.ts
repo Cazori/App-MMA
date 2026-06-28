@@ -5,13 +5,25 @@ import type { Fighter, Payment } from '../types/mma';
  * Returns 'paid' if a non-cancelled payment exists,
  * 'overdue' if no payment exists and the due date has passed,
  * 'pending' if no payment exists and the due date hasn't passed yet.
+ * Returns 'inactive' if the fighter wasn't enrolled in this period yet.
  */
 export function computePaymentStatus(
   fighter: Fighter,
   payments: Payment[],
   period: string,
   dueDay: number
-): 'paid' | 'pending' | 'overdue' | 'cancelled' {
+): 'paid' | 'pending' | 'overdue' | 'cancelled' | 'inactive' {
+  // Skip fighters who weren't enrolled yet in this period
+  if (fighter.createdAt) {
+    const enrollDate = new Date(fighter.createdAt);
+    const [year, month] = period.split('-').map(Number);
+    const periodStart = new Date(year, month - 1, 1);
+    // If fighter enrolled AFTER this period started, they're not overdue
+    if (enrollDate > periodStart) {
+      return 'pending'; // no payment expected, not overdue
+    }
+  }
+
   const fighterPayments = payments.filter(
     (p) => p.fighterId === fighter.id && p.period === period
   );

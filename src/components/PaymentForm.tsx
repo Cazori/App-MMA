@@ -28,7 +28,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   defaultFighterId,
 }) => {
   const { toast } = useToast();
-  const { user, isEditor } = useAuth();
+  const { user } = useAuth();
   const isEditMode = !!payment;
   const isCancelled = payment?.status === 'cancelled';
 
@@ -56,7 +56,6 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   }, [payment, defaultFighterId, fighters]);
 
   const periods = getPeriodRange(6, 6);
-  const selectedFighter = fighters.find(f => f.id === fighterId);
 
   // ── Duplicate check ─────────────────────────────────────────────────
   const hasDuplicate = (): boolean => {

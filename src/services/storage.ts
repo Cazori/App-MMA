@@ -1,7 +1,7 @@
-import { collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot, addDoc, Timestamp, where } from 'firebase/firestore';
+import { collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot, Timestamp, where } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Fighter, MetricSnapshot, Payment, FollowUp, PaymentConfig } from '../types/mma';
+import type { Fighter, MetricSnapshot, Payment, FollowUp, PaymentConfig, PaymentEdit } from '../types/mma';
 
 const FIGHTERS_COLLECTION = 'fighters';
 
@@ -246,7 +246,6 @@ export const subscribePaymentsByPeriod = (
 
 export const savePayment = async (payment: Payment): Promise<void> => {
   const { id, history, ...data } = payment;
-  const now = new Date().toISOString();
   const payload: Record<string, unknown> = {
     ...data,
     paidAt: Timestamp.fromDate(new Date(data.paidAt)),
@@ -265,7 +264,7 @@ export const savePayment = async (payment: Payment): Promise<void> => {
 export const updatePayment = async (
   id: string,
   updates: Partial<Payment>,
-  editEntry?: Payment['history'][number]
+  editEntry?: PaymentEdit
 ): Promise<void> => {
   const docRef = doc(db, PAYMENTS_COLLECTION, id);
   const payload: Record<string, unknown> = {

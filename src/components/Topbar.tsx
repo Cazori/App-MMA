@@ -12,10 +12,10 @@ interface TopbarProps {
   fighters: Fighter[];
 }
 
-const NAV_ITEMS: { key: PageKey; label: string; icon: React.ReactNode }[] = [
+const NAV_ITEMS: { key: PageKey; label: string; icon: React.ReactNode; adminOnly?: boolean }[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
   { key: 'fighters', label: 'Atletas', icon: <Users size={18} /> },
-  { key: 'pagos', label: 'Pagos', icon: <DollarSign size={18} /> },
+  { key: 'pagos', label: 'Pagos', icon: <DollarSign size={18} />, adminOnly: true },
   { key: 'tutorials', label: 'Tutoriales', icon: <BookOpen size={18} /> },
   { key: 'alianzas', label: 'Alianzas', icon: <Building2 size={18} /> },
   { key: 'shop', label: 'Tienda', icon: <ShoppingBag size={18} /> },
@@ -42,7 +42,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, onNavigate, onOpenA
         </div>
 
         <nav style={{ display: 'flex', gap: '4px' }}>
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS.filter((item) => !item.adminOnly || isEditor).map((item) => {
             const isActive = currentPage === item.key;
             return (
               <button
@@ -127,7 +127,7 @@ export const Topbar: React.FC<TopbarProps> = ({ currentPage, onNavigate, onOpenA
 
       {/* Mobile Bottom Nav */}
       <nav className="bottom-nav">
-        {NAV_ITEMS.map((item) => {
+        {NAV_ITEMS.filter((item) => !item.adminOnly || isEditor).map((item) => {
           const isActive = currentPage === item.key;
           return (
             <button

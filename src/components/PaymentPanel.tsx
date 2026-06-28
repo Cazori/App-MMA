@@ -4,9 +4,7 @@ import {
   subscribePaymentsByPeriod,
   savePayment,
   cancelPayment as cancelPaymentInStore,
-  updatePayment,
   saveFollowUp,
-  subscribeFollowUp,
 } from '../services/storage';
 import { useAuth } from '../contexts/AuthContext';
 import { useToast } from '../contexts/ToastContext';
@@ -14,7 +12,7 @@ import { useConfirm } from '../contexts/ConfirmContext';
 import { PaymentForm } from './PaymentForm';
 import {
   DollarSign, Download, Search, Phone, MessageCircle,
-  CheckCircle, XCircle, Clock, AlertTriangle, ChevronDown, ChevronUp, Copy, Check,
+  CheckCircle, XCircle, Clock, AlertTriangle, Copy, Check,
 } from 'lucide-react';
 import {
   getCurrentPeriod,
@@ -44,7 +42,6 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
   const [loading, setLoading] = useState(true);
   const [tabView, setTabView] = useState<TabView>('all');
   const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>('all');
-  const [followUps, setFollowUps] = useState<Record<string, FollowUp[]>>({});
   const [searchQuery, setSearchQuery] = useState('');
 
   // Form state
@@ -108,16 +105,6 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
       list = list.filter((fs) => fs.status === 'overdue');
     }
 
-    // Follow-up filter (only for overdue)
-    if (tabView === 'overdue' && followUpFilter !== 'all') {
-      list = list.filter((fs) => {
-        const fuList = followUps[fs.fighter.id] || [];
-        const latestFu = fuList[fuList.length - 1];
-        if (!latestFu) return followUpFilter === 'pending-contact';
-        return latestFu.status === followUpFilter;
-      });
-    }
-
     // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -125,7 +112,7 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
     }
 
     return list;
-  }, [fighterStatuses, tabView, followUpFilter, followUps, searchQuery]);
+  }, [fighterStatuses, tabView, followUpFilter, searchQuery]);
 
   // Sort overdue fighters by enrollment (oldest first)
   const sortedOverdue = useMemo(() => {

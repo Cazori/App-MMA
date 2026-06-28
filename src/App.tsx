@@ -10,8 +10,10 @@ import { FighterList } from './components/FighterList';
 import { FighterProfile } from './components/FighterProfile';
 import { FighterForm } from './components/FighterForm';
 import { AdminPanel } from './components/AdminPanel';
+import { useAuth } from './contexts/AuthContext';
 import { useToast } from './contexts/ToastContext';
 import { useConfirm } from './contexts/ConfirmContext';
+import { LoginPage } from './components/LoginPage';
 import { Shield, Menu, Loader2 } from 'lucide-react';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PageSkeleton } from './components/Skeleton';
@@ -28,6 +30,7 @@ type LoadState = 'loading' | 'ready';
 const AppContent: React.FC = () => {
   const { toast } = useToast();
   const { confirm } = useConfirm();
+  const { user, isEditor, loading: authLoading } = useAuth();
   const [currentPage, setCurrentPage] = useState<PageKey>('dashboard');
   const [fighters, setFighters] = useState<Fighter[]>([]);
   const [loadState, setLoadState] = useState<LoadState>('loading');
@@ -111,6 +114,11 @@ const AppContent: React.FC = () => {
     setShowForm(false);
     setEditingFighter(null);
   }, []);
+
+  // Show login if not authenticated
+  if (!user && !isEditor && !authLoading) {
+    return <LoginPage />;
+  }
 
   if (loadState === 'loading') {
     return (
@@ -213,7 +221,7 @@ const AppContent: React.FC = () => {
           </main>
         )}
 
-        {currentPage === 'pagos' && (
+        {currentPage === 'pagos' && isEditor && (
           <main className="main-content" style={{ height: 'auto' }}>
             <ErrorBoundary><PaymentPanel fighters={fighters} /></ErrorBoundary>
           </main>
