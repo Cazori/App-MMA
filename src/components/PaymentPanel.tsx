@@ -1,25 +1,30 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import type { Fighter, Payment, FollowUp } from '../types/mma';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { Fighter, Payment, ProgramConfig } from '../types/mma';
 import {
-  subscribePaymentsByPeriod,
+  subscribeAllPayments,
+  subscribeProgramsConfig,
   savePayment,
   cancelPayment as cancelPaymentInStore,
-  saveFollowUp,
 } from '../services/storage';
 import { useAuth } from '../contexts/AuthContext';
+
+// Helper: extract a usable phone number from a fighter
+// Falls back to socialMedia.instagram if it looks like a phone number
+const getFighterPhone = (f: Fighter): string | null => {
+  const raw = f.socialMedia?.instagram?.replace(/[^0-9]/g, '') || '';
+  return raw.length >= 7 ? raw : null;
+};
 import { useToast } from '../contexts/ToastContext';
 import { useConfirm } from '../contexts/ConfirmContext';
 import { PaymentForm } from './PaymentForm';
+import { CoverageCalendar } from './CoverageCalendar';
 import {
   DollarSign, Download, Search, Phone, MessageCircle,
-  CheckCircle, XCircle, Clock, AlertTriangle, Copy, Check,
+  CheckCircle, Clock, AlertTriangle, Copy, Check,
+  Calendar,
 } from 'lucide-react';
 import {
-  getCurrentPeriod,
-  formatPeriod,
-  getPeriodRange,
-  computePaymentStatus,
-  computePaymentCounts,
+  computeMembershipStatus,
   generateReminder,
   copyToClipboard,
 } from '../utils/payments';
@@ -31,14 +36,19 @@ interface PaymentPanelProps {
 type TabView = 'all' | 'overdue';
 type FollowUpFilter = 'all' | 'pending-contact' | 'contacted';
 
+interface CalendarPopup {
+  fighterId: string;
+  triggerRect: DOMRect;
+}
+
 export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
   const { toast } = useToast();
   const { confirm } = useConfirm();
   const { user, isEditor } = useAuth();
 
   // ── State ───────────────────────────────────────────────────────────
-  const [period, setPeriod] = useState(getCurrentPeriod());
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [programs, setPrograms] = useState<ProgramConfig[]>([]);
   const [loading, setLoading] = useState(true);
   const [tabView, setTabView] = useState<TabView>('all');
   const [followUpFilter, setFollowUpFilter] = useState<FollowUpFilter>('all');
@@ -49,50 +59,79 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
   const [editingPayment, setEditingPayment] = useState<Payment | null>(null);
   const [defaultFighterId, setDefaultFighterId] = useState<string | undefined>(undefined);
 
+  // Calendar popup state
+  const [calendarPopup, setCalendarPopup] = useState<CalendarPopup | null>(null);
+
+  // Follow-up tracking state
+  const [contactedFighters, setContactedFighters] = useState<Set<string>>(new Set());
+  const toggleContacted = useCallback((fighterId: string) => {
+    setContactedFighters(prev => {
+      const next = new Set(prev);
+      if (next.has(fighterId)) next.delete(fighterId);
+      else next.add(fighterId);
+      return next;
+    });
+  }, []);
+
   // Reminder state
   const [selectedForReminder, setSelectedForReminder] = useState<Set<string>>(new Set());
   const [showReminders, setShowReminders] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const copiedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Subscribe to payments ───────────────────────────────────────────
+  // ── Subscriptions ───────────────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
-    const unsub = subscribePaymentsByPeriod(period, (list) => {
+    const unsub = subscribeAllPayments((list) => {
       setPayments(list);
+      setLoading(false);
+    }, () => {
       setLoading(false);
     });
     return unsub;
-  }, [period]);
+  }, []);
 
-  // ── Derived data ────────────────────────────────────────────────────
-  const dueDay = 10; // from config, hardcoded for MVP
-  const periods = getPeriodRange(6, 6);
-  const counts = useMemo(
-    () => computePaymentCounts(fighters, payments, period, dueDay),
-    [fighters, payments, period, dueDay]
-  );
+  useEffect(() => {
+    const unsub = subscribeProgramsConfig((progs) => {
+      setPrograms(progs);
+    });
+    return unsub;
+  }, []);
 
-  // Map fighterId → payment for quick lookup
-  const paymentMap = useMemo(() => {
-    const map = new Map<string, Payment>();
-    for (const p of payments) {
-      if (p.status !== 'cancelled') map.set(p.fighterId, p);
-    }
-    return map;
-  }, [payments]);
-
-  // Build fighter status list
+  // ── Membership status per fighter ───────────────────────────────────
   const fighterStatuses = useMemo(() => {
-    return fighters.map((f) => ({
-      fighter: f,
-      payment: paymentMap.get(f.id),
-      status: computePaymentStatus(f, payments, period, dueDay),
-    }));
-  }, [fighters, paymentMap, payments, period, dueDay]);
+    return fighters.map((f) => {
+      const fighterPayments = payments.filter(
+        p => p.fighterId === f.id && p.status !== 'cancelled' && p.coverageEnd != null
+      );
+      // Latest non-cancelled payment with coverage
+      const latestPayment = fighterPayments
+        .filter(p => p.status !== 'cancelled')
+        .sort((a, b) => (b.coverageStart || '').localeCompare(a.coverageStart || ''))[0];
 
-  // Overdue fighters
-  const overdueFighters = useMemo(
-    () => fighterStatuses.filter((fs) => fs.status === 'overdue'),
+      return {
+        fighter: f,
+        latestPayment,
+        payments: fighterPayments,
+        status: computeMembershipStatus(fighterPayments),
+      };
+    });
+  }, [fighters, payments]);
+
+  // Active, expired, pending counts
+  const counts = useMemo(() => {
+    let active = 0, expired = 0, pending = 0;
+    for (const fs of fighterStatuses) {
+      if (fs.status === 'active') active++;
+      else if (fs.status === 'expired') expired++;
+      else pending++;
+    }
+    return { active, expired, pending };
+  }, [fighterStatuses]);
+
+  // Expired fighters (for overdue view)
+  const expiredFighters = useMemo(
+    () => fighterStatuses.filter((fs) => fs.status === 'expired'),
     [fighterStatuses]
   );
 
@@ -100,28 +139,30 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
   const filteredStatuses = useMemo(() => {
     let list = fighterStatuses;
 
-    // Tab filter
     if (tabView === 'overdue') {
-      list = list.filter((fs) => fs.status === 'overdue');
+      list = list.filter((fs) => fs.status === 'expired');
     }
 
-    // Search
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       list = list.filter((fs) => fs.fighter.name.toLowerCase().includes(q));
     }
 
     return list;
-  }, [fighterStatuses, tabView, followUpFilter, searchQuery]);
+  }, [fighterStatuses, tabView, searchQuery]);
 
-  // Sort overdue fighters by enrollment (oldest first)
-  const sortedOverdue = useMemo(() => {
-    return [...overdueFighters].sort((a, b) => {
-      const aDate = a.fighter.createdAt || '';
-      const bDate = b.fighter.createdAt || '';
-      return aDate.localeCompare(bDate);
-    });
-  }, [overdueFighters]);
+  // Sort expired by enrollment, apply follow-up filter
+  const sortedExpired = useMemo(() => {
+    let list = [...expiredFighters];
+    if (followUpFilter === 'contacted') {
+      list = list.filter(fs => contactedFighters.has(fs.fighter.id));
+    } else if (followUpFilter === 'pending-contact') {
+      list = list.filter(fs => !contactedFighters.has(fs.fighter.id));
+    }
+    return list.sort((a, b) =>
+      (a.fighter.createdAt || '').localeCompare(b.fighter.createdAt || '')
+    );
+  }, [expiredFighters, followUpFilter, contactedFighters]);
 
   // ── Handlers ────────────────────────────────────────────────────────
   const handleSave = async (payment: Payment) => {
@@ -155,38 +196,22 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
     setDefaultFighterId(undefined);
   };
 
-  // ── Follow-up ───────────────────────────────────────────────────────
-  const toggleFollowUp = async (fighterId: string, currentStatus?: string) => {
-    const payment = payments.find((p) => p.fighterId === fighterId);
-    if (!payment) return;
+  // ── Calendar popup ──────────────────────────────────────────────────
+  const openCalendar = useCallback((fighterId: string, e: React.MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    setCalendarPopup({ fighterId, triggerRect: rect });
+  }, []);
 
-    const newStatus = currentStatus === 'contacted' ? 'pending-contact' : 'contacted';
-    const now = new Date().toISOString();
-    const followUp: FollowUp = {
-      id: `fu-${payment.id}-${Date.now()}`,
-      status: newStatus,
-      contactedAt: newStatus === 'contacted' ? now : undefined,
-      updatedAt: now,
-    };
-
-    // Open prompt for note if contacting
-    if (newStatus === 'contacted') {
-      const note = prompt('Agregá una nota de seguimiento (opcional):') || undefined;
-      followUp.note = note;
-    }
-
-    await saveFollowUp(payment.id, followUp);
-  };
+  const closeCalendar = useCallback(() => {
+    setCalendarPopup(null);
+  }, []);
 
   // ── Reminders ───────────────────────────────────────────────────────
   const toggleReminderSelection = (fighterId: string) => {
     setSelectedForReminder((prev) => {
       const next = new Set(prev);
-      if (next.has(fighterId)) {
-        next.delete(fighterId);
-      } else {
-        next.add(fighterId);
-      }
+      if (next.has(fighterId)) next.delete(fighterId);
+      else next.add(fighterId);
       return next;
     });
   };
@@ -196,9 +221,9 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
     if (success) {
       setCopiedId(id);
       toast('success', 'Mensaje copiado al portapapeles');
-      setTimeout(() => setCopiedId(null), 2000);
+      if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+      copiedTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
     } else {
-      // Fallback: select text and prompt
       toast('warning', 'Presioná Ctrl+C para copiar el mensaje');
     }
   };
@@ -206,12 +231,12 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
   // ── Export ──────────────────────────────────────────────────────────
   const handleExport = async () => {
     if (payments.length === 0) {
-      toast('warning', 'No hay pagos registrados en este período');
+      toast('warning', 'No hay pagos registrados');
       return;
     }
     try {
       const { exportPaymentsToExcel } = await import('../utils/exportPaymentExcel');
-      await exportPaymentsToExcel(payments, fighters, period);
+      await exportPaymentsToExcel(payments, fighters, programs);
       toast('success', 'Exportación completada');
     } catch (err) {
       console.error('Export error:', err);
@@ -219,25 +244,27 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
     }
   };
 
-  // ── Helper: status color ────────────────────────────────────────────
-  const statusColor = (status: string) => {
+  // ── Helpers ─────────────────────────────────────────────────────────
+  const membershipColor = (status: string) => {
     switch (status) {
-      case 'paid': return 'var(--color-success)';
-      case 'pending': return 'var(--color-warning)';
-      case 'overdue': return 'var(--color-danger)';
-      case 'cancelled': return 'var(--text-muted)';
-      default: return 'var(--text-secondary)';
+      case 'active': return 'var(--color-success)';
+      case 'expired': return 'var(--color-danger)';
+      default: return 'var(--text-muted)';
     }
   };
 
-  const statusLabel = (status: string) => {
+  const membershipLabel = (status: string) => {
     switch (status) {
-      case 'paid': return 'Pagado';
-      case 'pending': return 'Pendiente';
-      case 'overdue': return 'Vencido';
-      case 'cancelled': return 'Cancelado';
-      default: return status;
+      case 'active': return 'Activo';
+      case 'expired': return 'Expirado';
+      default: return 'Sin membresía';
     }
+  };
+
+  const programName = (programId?: string) => {
+    if (!programId) return '—';
+    const prog = programs.find(p => p.id === programId);
+    return prog?.name || programId;
   };
 
   const methodLabel: Record<string, string> = {
@@ -250,7 +277,7 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
   // ── Render ──────────────────────────────────────────────────────────
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
+      {/* Header — No period selector */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px' }}>
         <div>
           <h1 style={{ fontSize: '1.8rem', color: '#fff', fontWeight: 800, letterSpacing: '-0.02em', display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -258,22 +285,11 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
             Pagos
           </h1>
           <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-            Gestioná los pagos de membresía
+            Membresías — cobertura continua
           </p>
         </div>
 
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <select
-            value={period}
-            onChange={(e) => setPeriod(e.target.value)}
-            className="form-input"
-            style={{ width: '160px', fontSize: '0.85rem' }}
-          >
-            {periods.map((p) => (
-              <option key={p} value={p}>{formatPeriod(p)}</option>
-            ))}
-          </select>
-
           {isEditor && (
             <>
               <button onClick={() => handleAddPayment()} className="btn btn-primary" style={{ fontSize: '0.85rem' }}>
@@ -287,13 +303,12 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
         </div>
       </div>
 
-      {/* Count Cards */}
+      {/* Count Cards — Active / Expired / Pending */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
         {[
-          { label: 'Pagados', value: counts.paid, color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)' },
-          { label: 'Pendientes', value: counts.pending, color: 'var(--color-warning)', bg: 'rgba(234,179,8,0.1)' },
-          { label: 'Vencidos', value: counts.overdue, color: 'var(--color-danger)', bg: 'rgba(239,68,68,0.1)' },
-          { label: 'Cancelados', value: counts.cancelled, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.03)' },
+          { label: 'Activos', value: counts.active, color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)' },
+          { label: 'Expirados', value: counts.expired, color: 'var(--color-danger)', bg: 'rgba(239,68,68,0.1)' },
+          { label: 'Sin membresía', value: counts.pending, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.03)' },
         ].map((c) => (
           <div key={c.label} className="glass-panel" style={{ padding: '16px', borderRadius: '16px', textAlign: 'center' }}>
             <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.03em' }}>{c.label}</p>
@@ -316,7 +331,7 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
           className={`btn ${tabView === 'overdue' ? 'btn-primary' : 'btn-secondary'}`}
           style={{ fontSize: '0.85rem', padding: '8px 16px' }}
         >
-          Vencidos {overdueFighters.length > 0 && `(${overdueFighters.length})`}
+          Expirados {expiredFighters.length > 0 && `(${expiredFighters.length})`}
         </button>
       </div>
 
@@ -335,7 +350,7 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
         </div>
       </div>
 
-      {/* Overdue Filters */}
+      {/* Expired Filters */}
       {tabView === 'overdue' && (
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           {(['all', 'pending-contact', 'contacted'] as FollowUpFilter[]).map((f) => (
@@ -349,7 +364,7 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
             </button>
           ))}
 
-          {tabView === 'overdue' && sortedOverdue.length > 0 && (
+          {tabView === 'overdue' && sortedExpired.length > 0 && (
             <button
               onClick={() => setShowReminders(!showReminders)}
               className="btn btn-secondary"
@@ -362,40 +377,39 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
         </div>
       )}
 
-      {/* Bulk Reminder Sheet */}
-      {showReminders && tabView === 'overdue' && sortedOverdue.length > 0 && (
+      {/* Reminder Sheet */}
+      {showReminders && tabView === 'overdue' && sortedExpired.length > 0 && (
         <div className="glass-panel" style={{ padding: '20px', borderRadius: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
             <h3 style={{ fontSize: '1rem', color: '#fff', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <MessageCircle size={18} style={{ color: 'var(--accent-gold)' }} />
               Recordatorios ({selectedForReminder.size} seleccionados)
             </h3>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={() => {
-                  if (selectedForReminder.size === sortedOverdue.length) {
-                    setSelectedForReminder(new Set());
-                  } else {
-                    setSelectedForReminder(new Set(sortedOverdue.map(fs => fs.fighter.id)));
-                  }
-                }}
-                className="btn btn-secondary"
-                style={{ fontSize: '0.78rem', padding: '6px 12px' }}
-              >
-                {selectedForReminder.size === sortedOverdue.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
-              </button>
-            </div>
+            <button
+              onClick={() => {
+                if (selectedForReminder.size === sortedExpired.length) {
+                  setSelectedForReminder(new Set());
+                } else {
+                  setSelectedForReminder(new Set(sortedExpired.map(fs => fs.fighter.id)));
+                }
+              }}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+            >
+              {selectedForReminder.size === sortedExpired.length ? 'Deseleccionar todos' : 'Seleccionar todos'}
+            </button>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '400px', overflowY: 'auto' }}>
-            {sortedOverdue
+            {sortedExpired
               .filter((fs) => selectedForReminder.size === 0 || selectedForReminder.has(fs.fighter.id))
               .map((fs) => {
+                const latest = fs.latestPayment;
                 const reminderText = generateReminder(
                   fs.fighter.name,
-                  15000, // default amount
-                  period,
-                  `día ${dueDay}`
+                  latest?.amount || programs[0]?.monthlyPrice || 160000,
+                  latest?.programId ? programName(latest.programId) : '',
+                  latest?.coverageEnd || undefined
                 );
                 const reminderId = `rem-${fs.fighter.id}`;
                 return (
@@ -410,13 +424,12 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
                         />
                         <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{fs.fighter.name}</strong>
                         <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginLeft: '8px' }}>
-                          {fs.fighter.socialMedia?.instagram || 'Sin teléfono registrado'}
+                          {getFighterPhone(fs.fighter) || fs.fighter.socialMedia?.instagram || 'Sin contacto'}
                         </span>
                       </div>
                       <button
                         onClick={() => {
-                          // Open wa.me link
-                          const phone = fs.fighter.socialMedia?.instagram?.replace(/[^0-9]/g, '') || '';
+                          const phone = getFighterPhone(fs.fighter);
                           if (phone) {
                             window.open(`https://wa.me/${phone}?text=${encodeURIComponent(reminderText)}`, '_blank');
                           } else {
@@ -446,7 +459,6 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
                       }}
                       rows={2}
                       onClick={(e) => {
-                        // Fallback: select text for manual copy
                         if (!navigator.clipboard) {
                           (e.target as HTMLTextAreaElement).select();
                         }
@@ -469,12 +481,12 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
           {tabView === 'overdue' ? (
             <>
               <CheckCircle size={48} style={{ color: 'var(--color-success)', opacity: 0.5, marginBottom: '12px' }} />
-              <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Todos los luchadores están al día 🎉</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>Todos los luchadores están activos</p>
             </>
           ) : (
             <>
               <DollarSign size={48} style={{ color: 'var(--text-muted)', opacity: 0.3, marginBottom: '12px' }} />
-              <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>No hay luchadores activos en este período</p>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '1.1rem' }}>No hay luchadores registrados</p>
             </>
           )}
         </div>
@@ -483,7 +495,7 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
           {/* Table Header */}
           <div style={{
             display: 'grid',
-            gridTemplateColumns: tabView === 'overdue' ? '2fr 1fr 1fr 1fr 1.5fr 1fr' : '2fr 1.5fr 1fr 1fr 1fr 1.5fr',
+            gridTemplateColumns: '2fr 1.2fr 1fr 1fr 1.2fr 1.5fr 0.6fr',
             gap: '8px',
             padding: '14px 20px',
             borderBottom: '1px solid var(--border-color)',
@@ -495,28 +507,24 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
             letterSpacing: '0.03em',
           }}>
             <span>Luchador</span>
-            <span>Monto</span>
-            <span>Método</span>
             <span>Estado</span>
-            {tabView === 'overdue' ? (
-              <>
-                <span>Seguimiento</span>
-                <span style={{ textAlign: 'right' }}>Acción</span>
-              </>
-            ) : (
-              <>
-                <span>Fecha</span>
-                <span style={{ textAlign: 'right' }}>Acción</span>
-              </>
-            )}
+            <span>Programa</span>
+            <span>Cobertura</span>
+            <span>Último pago</span>
+            <span>Método</span>
+            <span style={{ textAlign: 'right' }}>Acción</span>
           </div>
 
           {/* Table Rows */}
           {filteredStatuses.map((fs) => {
-            const p = fs.payment;
-            const isOverdueView = tabView === 'overdue';
-            const phone = fs.fighter.socialMedia?.instagram || '';
-            const reminderText = generateReminder(fs.fighter.name, 15000, period, `día ${dueDay}`);
+            const p = fs.latestPayment;
+            const isExpired = fs.status === 'expired';
+            const reminderText = generateReminder(
+              fs.fighter.name,
+              p?.amount || programs[0]?.monthlyPrice || 160000,
+              p?.programId ? programName(p.programId) : '',
+              p?.coverageEnd || undefined
+            );
             const reminderId = `rem-${fs.fighter.id}`;
 
             return (
@@ -524,7 +532,7 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
                 key={fs.fighter.id}
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: isOverdueView ? '2fr 1fr 1fr 1fr 1.5fr 1fr' : '2fr 1.5fr 1fr 1fr 1fr 1.5fr',
+                  gridTemplateColumns: '2fr 1.2fr 1fr 1.2fr 1.2fr 1.5fr 0.6fr',
                   gap: '8px',
                   padding: '14px 20px',
                   borderBottom: '1px solid rgba(255,255,255,0.03)',
@@ -538,37 +546,30 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
                 {/* Fighter Name */}
                 <div>
                   <span style={{ color: '#fff', fontWeight: 700 }}>{fs.fighter.name}</span>
-                  {isOverdueView && fs.fighter.socialMedia?.instagram && (
+                  {(() => {
+                    const fighterPhone = getFighterPhone(fs.fighter);
+                    if (!fighterPhone) return null;
+                    return (
                     <div style={{ display: 'flex', gap: '6px', marginTop: '4px' }}>
                       <a
-                        href={`tel:${phone}`}
+                        href={`tel:${fighterPhone}`}
                         style={{ color: 'var(--accent-orange)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
                         <Phone size={12} /> Llamar
                       </a>
                       <a
-                        href={`https://wa.me/${phone.replace(/[^0-9]/g, '')}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                        href={`https://wa.me/${fighterPhone}`}
+                        target="_blank" rel="noopener noreferrer"
                         style={{ color: 'var(--color-success)', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '4px' }}
                       >
                         <MessageCircle size={12} /> WhatsApp
                       </a>
                     </div>
-                  )}
+                  );
+                })()}
                 </div>
 
-                {/* Amount */}
-                <span style={{ color: '#fff', fontWeight: 700 }}>
-                  ${(p?.amount || 15000).toLocaleString('es-CO')}
-                </span>
-
-                {/* Method */}
-                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
-                  {p ? methodLabel[p.method] || p.method : '—'}
-                </span>
-
-                {/* Status Badge */}
+                {/* Membership Status Badge */}
                 <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
@@ -577,47 +578,61 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
                   borderRadius: '20px',
                   fontSize: '0.78rem',
                   fontWeight: 700,
-                  background: `${statusColor(fs.status)}15`,
-                  color: statusColor(fs.status),
+                  background: `${membershipColor(fs.status)}15`,
+                  color: membershipColor(fs.status),
                   width: 'fit-content',
                 }}>
-                  {fs.status === 'paid' && <CheckCircle size={12} />}
+                  {fs.status === 'active' && <CheckCircle size={12} />}
+                  {fs.status === 'expired' && <AlertTriangle size={12} />}
                   {fs.status === 'pending' && <Clock size={12} />}
-                  {fs.status === 'overdue' && <AlertTriangle size={12} />}
-                  {fs.status === 'cancelled' && <XCircle size={12} />}
-                  {statusLabel(fs.status)}
+                  {membershipLabel(fs.status)}
                 </span>
 
-                {/* Overdue view: follow-up */}
-                {isOverdueView ? (
-                  <div>
-                    <button
-                      onClick={() => toggleFollowUp(fs.fighter.id, fs.payment ? 'contacted' : 'pending-contact')}
-                      className="btn btn-secondary"
-                      style={{ fontSize: '0.75rem', padding: '4px 10px' }}
-                    >
-                      {fs.payment ? 'Contactado' : 'Marcar contactado'}
-                    </button>
-                  </div>
-                ) : (
-                  /* Non-overdue view: date */
-                  <span style={{ color: 'var(--text-muted)', fontSize: '0.8rem' }}>
-                    {p ? new Date(p.paidAt).toLocaleDateString('es-AR') : '—'}
-                  </span>
-                )}
+                {/* Program */}
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  {p?.programId ? programName(p.programId) : '—'}
+                </span>
+
+                {/* Coverage Range */}
+                <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                  {p?.coverageEnd
+                    ? `${new Date(p.coverageEnd).toLocaleDateString('es-AR')}`
+                    : '—'}
+                </span>
+
+                {/* Latest Payment Amount */}
+                <span style={{ color: '#fff', fontWeight: 700 }}>
+                  {p ? `$${p.amount.toLocaleString('es-CO')}` : '—'}
+                </span>
+
+                {/* Method */}
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                  {p ? methodLabel[p.method] || p.method : '—'}
+                </span>
 
                 {/* Actions */}
                 <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-                  {isEditor && fs.status === 'pending' && (
+                  {/* Calendar icon */}
+                  <button
+                    onClick={(e) => openCalendar(fs.fighter.id, e)}
+                    className="btn btn-secondary"
+                    style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                    title="Ver calendario de cobertura"
+                    aria-label="Calendario de cobertura"
+                  >
+                    <Calendar size={14} />
+                  </button>
+
+                  {isEditor && (fs.status === 'pending' || fs.status === 'expired') && (
                     <button
                       onClick={() => handleAddPayment(fs.fighter.id)}
                       className="btn btn-primary"
                       style={{ fontSize: '0.75rem', padding: '4px 10px' }}
                     >
-                      Registrar
+                      Pagar
                     </button>
                   )}
-                  {p && isEditor && fs.status === 'paid' && (
+                  {p && isEditor && fs.status === 'active' && (
                     <button
                       onClick={() => handleEdit(p)}
                       className="btn btn-secondary"
@@ -626,20 +641,31 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
                       Editar
                     </button>
                   )}
-                  {isOverdueView && (
+                  {isExpired && (
+                    <button
+                      onClick={() => toggleContacted(fs.fighter.id)}
+                      className={`btn ${contactedFighters.has(fs.fighter.id) ? 'btn-primary' : 'btn-secondary'}`}
+                      style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+                      title={contactedFighters.has(fs.fighter.id) ? 'Marcar como no contactado' : 'Marcar como contactado'}
+                    >
+                      {contactedFighters.has(fs.fighter.id) ? '✓' : <MessageCircle size={14} />}
+                    </button>
+                  )}
+                  {isExpired && (
                     <button
                       onClick={async () => {
                         const success = await copyToClipboard(reminderText);
                         if (success) {
                           setCopiedId(reminderId);
                           toast('success', 'Mensaje copiado al portapapeles');
-                          setTimeout(() => setCopiedId(null), 2000);
+                          if (copiedTimerRef.current) clearTimeout(copiedTimerRef.current);
+                          copiedTimerRef.current = setTimeout(() => setCopiedId(null), 2000);
                         } else {
                           toast('warning', 'Presioná Ctrl+C para copiar el mensaje');
                         }
                       }}
                       className="btn btn-secondary"
-                      style={{ fontSize: '0.75rem', padding: '4px 10px' }}
+                      style={{ fontSize: '0.75rem', padding: '4px 8px' }}
                     >
                       {copiedId === reminderId ? <Check size={14} /> : <Copy size={14} />}
                     </button>
@@ -651,16 +677,34 @@ export const PaymentPanel: React.FC<PaymentPanelProps> = ({ fighters }) => {
         </div>
       )}
 
+      {/* Coverage Calendar Popup */}
+      {calendarPopup && (
+        <CoverageCalendar
+          coverages={(() => {
+            const fId = calendarPopup.fighterId;
+            return payments
+              .filter(p => p.fighterId === fId && p.coverageStart && p.coverageEnd && p.programId)
+              .map(p => ({
+                programId: p.programId! as 'daily' | 'three-day',
+                coverageStart: p.coverageStart!,
+                coverageEnd: p.coverageEnd!,
+              }));
+          })()}
+          triggerRect={calendarPopup.triggerRect}
+          onClose={closeCalendar}
+        />
+      )}
+
       {/* Payment Form Modal */}
       {showForm && (
         <PaymentForm
           fighters={fighters}
           existingPayments={payments}
+          programs={programs}
           payment={editingPayment}
           onSave={handleSave}
           onCancel={editingPayment ? handleCancel : undefined}
           onClose={handleFormClose}
-          defaultPeriod={period}
           defaultFighterId={defaultFighterId}
         />
       )}

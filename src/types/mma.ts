@@ -180,12 +180,18 @@ export interface PaymentEdit {
 export interface Payment {
   id: string;
   fighterId: string;
+  /** @deprecated — derived from coverageStart.slice(0,7) for backward compat */
   period: string;           // "2026-06" (YYYY-MM)
   amount: number;           // COP, integer
   method: PaymentMethod;
   status: PaymentStatus;
   notes?: string;
-  paidAt: string;           // ISO date
+  paidAt: string;           // ISO date, admin-chosen
+  // NEW: Coverage fields (optional for legacy payments)
+  coverageStart?: string;   // ISO date, computed
+  coverageEnd?: string;     // ISO date, computed
+  programId?: 'daily' | 'three-day';
+  monthsPaid?: number;      // amount / programPrice
   cancelledAt?: string;     // ISO date (if cancelled)
   cancelledBy?: string;     // user ID (if cancelled)
   createdAt: string;
@@ -201,7 +207,14 @@ export interface FollowUp {
   updatedAt: string;
 }
 
+// ─── Program & Payment Config ──────────────────────────────────────────
+export interface ProgramConfig {
+  id: 'daily' | 'three-day';
+  name: string;             // "Todos los días" | "3 días a la semana"
+  monthlyPrice: number;     // 160000 | 120000
+}
+
 export interface PaymentConfig {
-  dueDay: number;           // default 10
-  defaultAmount: number;    // default 15000
+  /** @deprecated — replaced by programs[]. Use subscribeProgramsConfig */
+  programs: ProgramConfig[];
 }

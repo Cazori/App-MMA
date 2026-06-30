@@ -1,6 +1,5 @@
 import ExcelJS from 'exceljs';
-import type { Fighter, Payment } from '../types/mma';
-import { formatPeriod } from './payments';
+import type { Fighter, Payment, ProgramConfig } from '../types/mma';
 
 const HEADER_COLOR = 'EA580C';
 const HEADER_TEXT = 'FFFFFF';
@@ -39,50 +38,53 @@ const methodLabel: Record<string, string> = {
 };
 
 /**
- * Export payment records for a given period to .xlsx.
+ * Export all payment records to .xlsx with coverage dates and program info.
+ * Replaces previous period-based export with date-range-based columns.
  * Uses lazy import pattern — call only when user triggers export.
  */
 export const exportPaymentsToExcel = async (
   payments: Payment[],
   fighters: Fighter[],
-  period: string
+  programs: ProgramConfig[]
 ): Promise<void> => {
   if (payments.length === 0) {
-    throw new Error('No hay pagos registrados en este período');
+    throw new Error('No hay pagos registrados');
   }
 
   const fighterMap = new Map(fighters.map((f) => [f.id, f]));
+  const programMap = new Map(programs.map((p) => [p.id, p.name]));
   const wb = new ExcelJS.Workbook();
   wb.creator = 'Guerreros MMA App';
   wb.created = new Date();
 
-  const periodLabel = formatPeriod(period);
-  const [year, month] = period.split('-');
+  // Date stamp for the export title
+  const today = new Date().toLocaleDateString('es-AR');
 
   // ── Sheet: Pagos ────────────────────────────────────────────────────
   const ws = wb.addWorksheet('Pagos', {
     pageSetup: { orientation: 'landscape', fitToPage: true },
   });
 
-  // Title row
-  ws.mergeCells(1, 1, 1, 9);
+  // Title row — date range based instead of period
+  ws.mergeCells(1, 1, 1, 10);
   const titleCell = ws.getCell('A1');
-  titleCell.value = `Pagos — ${periodLabel}`;
+  titleCell.value = `Pagos — Registro al ${today}`;
   titleCell.font = { bold: true, size: 14, color: { argb: HEADER_TEXT }, name: 'Inter' };
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEADER_COLOR } };
   titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
   titleCell.border = border;
 
-  // Column headers
+  // Column headers — coverageStart/coverageEnd replace period, program added
   const columns = [
     { header: 'Luchador', width: 32 },
     { header: 'Teléfono', width: 18 },
     { header: 'Monto', width: 14 },
+    { header: 'Programa', width: 20 },
+    { header: 'Inicio Cobertura', width: 18 },
+    { header: 'Fin Cobertura', width: 18 },
     { header: 'Método de Pago', width: 20 },
     { header: 'Estado', width: 14 },
-    { header: 'Período', width: 14 },
     { header: 'Fecha de Pago', width: 16 },
-    { header: 'Fecha de Cancelación', width: 18 },
     { header: 'Notas', width: 28 },
   ];
 
@@ -110,21 +112,26 @@ export const exportPaymentsToExcel = async (
     const amountCell = ws.getCell(r, 3);
     dataCell(amountCell, p.amount, isAlt);
     amountCell.numFmt = '#,##0';
-    dataCell(ws.getCell(r, 4), methodLabel[p.method] || p.method, isAlt);
-    dataCell(ws.getCell(r, 5), p.status === 'paid' ? 'Pagado' : 'Cancelado', isAlt);
-    dataCell(ws.getCell(r, 6), periodLabel, isAlt);
+    // Program name
+    dataCell(ws.getCell(r, 4), p.programId ? (programMap.get(p.programId) || p.programId) : '—', isAlt);
+    // Coverage start
+    dataCell(ws.getCell(r, 5), p.coverageStart ? p.coverageStart.slice(0, 10) : (p.period || '—'), isAlt);
+    // Coverage end
+    dataCell(ws.getCell(r, 6), p.coverageEnd ? p.coverageEnd.slice(0, 10) : '—', isAlt);
+    // Method
+    dataCell(ws.getCell(r, 7), methodLabel[p.method] || p.method, isAlt);
+    // Status
+    dataCell(ws.getCell(r, 8), p.status === 'paid' ? 'Pagado' : 'Cancelado', isAlt);
     // Payment date
-    const payDateCell = ws.getCell(r, 7);
+    const payDateCell = ws.getCell(r, 9);
     dataCell(payDateCell, p.paidAt.slice(0, 10), isAlt);
-    // Cancelled date
-    if (p.cancelledAt) {
-      const cancelDateCell = ws.getCell(r, 8);
-      dataCell(cancelDateCell, p.cancelledAt.slice(0, 10), isAlt);
-    } else {
-      dataCell(ws.getCell(r, 8), null, isAlt);
-    }
-    dataCell(ws.getCell(r, 9), p.notes || null, isAlt);
+    // Notes
+    dataCell(ws.getCell(r, 10), p.notes || null, isAlt);
   });
+
+  // Generate timestamp for filename
+  const now = new Date();
+  const fileStamp = `${now.getFullYear()}_${String(now.getMonth() + 1).padStart(2, '0')}_${String(now.getDate()).padStart(2, '0')}`;
 
   // Generate and download
   const buffer = await wb.xlsx.writeBuffer();
@@ -132,7 +139,7 @@ export const exportPaymentsToExcel = async (
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `pagos_${year}_${month}.xlsx`;
+  a.download = `pagos_${fileStamp}.xlsx`;
   a.click();
   URL.revokeObjectURL(url);
 };

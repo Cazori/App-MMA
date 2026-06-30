@@ -1,7 +1,8 @@
 import { collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot, Timestamp, where } from 'firebase/firestore';
 import type { Unsubscribe } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Fighter, MetricSnapshot, Payment, FollowUp, PaymentConfig, PaymentEdit } from '../types/mma';
+import type { Fighter, MetricSnapshot, Payment, FollowUp, PaymentConfig, ProgramConfig, PaymentEdit } from '../types/mma';
+import { addMonths } from '../utils/payments';
 
 const FIGHTERS_COLLECTION = 'fighters';
 
@@ -195,6 +196,11 @@ const toPayment = (id: string, data: Record<string, unknown>): Payment => ({
   status: (data.status as Payment['status']) || 'paid',
   notes: (data.notes as string) || undefined,
   paidAt: ((data.paidAt as Timestamp)?.toDate?.()?.toISOString?.()) || (data.paidAt as string) || new Date().toISOString(),
+  // NEW coverage fields
+  coverageStart: ((data.coverageStart as Timestamp)?.toDate?.()?.toISOString?.()) || (data.coverageStart as string) || undefined,
+  coverageEnd: ((data.coverageEnd as Timestamp)?.toDate?.()?.toISOString?.()) || (data.coverageEnd as string) || undefined,
+  programId: (data.programId as Payment['programId']) || undefined,
+  monthsPaid: (data.monthsPaid as number) || undefined,
   cancelledAt: (data.cancelledAt as Timestamp)?.toDate?.()?.toISOString?.() || (data.cancelledAt as string) || undefined,
   cancelledBy: (data.cancelledBy as string) || undefined,
   createdAt: ((data.createdAt as Timestamp)?.toDate?.()?.toISOString?.()) || (data.createdAt as string) || new Date().toISOString(),
@@ -202,15 +208,14 @@ const toPayment = (id: string, data: Record<string, unknown>): Payment => ({
   history: (data.history as Payment['history']) || undefined,
 });
 
-export const subscribePayments = (
+// ─── NEW: Subscribe to all payments (unfiltered) ──────────────────────
+// Replaces both subscribePayments and subscribePaymentsByPeriod.
+// No orderBy — client-side sort for flexibility.
+export const subscribeAllPayments = (
   onData: (payments: Payment[]) => void,
   onError?: (err: Error) => void
 ): Unsubscribe => {
-  const q = query(
-    collection(db, PAYMENTS_COLLECTION),
-    orderBy('period', 'desc'),
-    orderBy('fighterId')
-  );
+  const q = query(collection(db, PAYMENTS_COLLECTION));
   return onSnapshot(q,
     (snapshot) => {
       const list = snapshot.docs.map(d => toPayment(d.id, d.data() as Record<string, unknown>));
@@ -223,22 +228,29 @@ export const subscribePayments = (
   );
 };
 
-export const subscribePaymentsByPeriod = (
-  period: string,
-  onData: (payments: Payment[]) => void,
+// ─── NEW: Subscribe to programs config ────────────────────────────────
+// Reads /config/payments, falls back to hardcoded defaults.
+const DEFAULT_PROGRAMS: ProgramConfig[] = [
+  { id: 'daily', name: 'Todos los días', monthlyPrice: 160000 },
+  { id: 'three-day', name: '3 días a la semana', monthlyPrice: 120000 },
+];
+
+export const subscribeProgramsConfig = (
+  onData: (programs: ProgramConfig[]) => void,
   onError?: (err: Error) => void
 ): Unsubscribe => {
-  const q = query(
-    collection(db, PAYMENTS_COLLECTION),
-    where('period', '==', period)
-  );
-  return onSnapshot(q,
-    (snapshot) => {
-      const list = snapshot.docs.map(d => toPayment(d.id, d.data() as Record<string, unknown>));
-      onData(list);
+  const docRef = doc(db, 'config', 'payments');
+  return onSnapshot(docRef,
+    (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        onData((data.programs as ProgramConfig[]) || DEFAULT_PROGRAMS);
+      } else {
+        onData(DEFAULT_PROGRAMS);
+      }
     },
     (err) => {
-      console.error('Payments by period subscribe error:', err);
+      console.error('Programs config error:', err);
       onError?.(err);
     }
   );
@@ -246,17 +258,45 @@ export const subscribePaymentsByPeriod = (
 
 export const savePayment = async (payment: Payment): Promise<void> => {
   const { id, history, ...data } = payment;
+
+  // Validate required fields
+  if (!data.paidAt || isNaN(new Date(data.paidAt).getTime())) {
+    throw new Error('savePayment: paidAt is missing or invalid — coverage dates cannot be computed');
+  }
+
+  // Ensure coverage fields exist (compute if missing)
+  let safeData = { ...data };
+  if (!safeData.coverageStart || !safeData.coverageEnd) {
+    // For backward compat: treat as fresh payment (gap scenario)
+    const monthsPaid = safeData.monthsPaid || 1;
+    const startDate = new Date(safeData.paidAt);
+    safeData.coverageStart = startDate.toISOString();
+    safeData.coverageEnd = addMonths(startDate, monthsPaid).toISOString();
+    safeData.period = safeData.coverageStart.slice(0, 7);
+  }
+
+  // Strip undefined values — Firestore rejects them
+  const clean = Object.fromEntries(
+    Object.entries(safeData).filter(([, v]) => v !== undefined)
+  );
   const payload: Record<string, unknown> = {
-    ...data,
-    paidAt: Timestamp.fromDate(new Date(data.paidAt)),
-    createdAt: data.createdAt ? Timestamp.fromDate(new Date(data.createdAt)) : Timestamp.now(),
+    ...clean,
+    paidAt: Timestamp.fromDate(new Date(clean.paidAt as string)),
+    createdAt: safeData.createdAt ? Timestamp.fromDate(new Date(safeData.createdAt)) : Timestamp.now(),
     updatedAt: Timestamp.now(),
   };
+  // Convert coverage fields to Timestamps
+  if (safeData.coverageStart) {
+    payload.coverageStart = Timestamp.fromDate(new Date(safeData.coverageStart));
+  }
+  if (safeData.coverageEnd) {
+    payload.coverageEnd = Timestamp.fromDate(new Date(safeData.coverageEnd));
+  }
   if (history && history.length > 0) {
     payload.history = history;
   }
-  if (data.cancelledAt) {
-    payload.cancelledAt = Timestamp.fromDate(new Date(data.cancelledAt));
+  if (safeData.cancelledAt) {
+    payload.cancelledAt = Timestamp.fromDate(new Date(safeData.cancelledAt));
   }
   await setDoc(doc(db, PAYMENTS_COLLECTION, id), payload, { merge: true });
 };
@@ -267,8 +307,12 @@ export const updatePayment = async (
   editEntry?: PaymentEdit
 ): Promise<void> => {
   const docRef = doc(db, PAYMENTS_COLLECTION, id);
+  // Strip undefined values — Firestore rejects them
+  const clean = Object.fromEntries(
+    Object.entries(updates).filter(([, v]) => v !== undefined)
+  );
   const payload: Record<string, unknown> = {
-    ...updates,
+    ...clean,
     updatedAt: Timestamp.now(),
   };
   // Convert Timestamp fields
@@ -345,30 +389,6 @@ export const subscribeFollowUp = (
 };
 
 // ─── Payment Config ──────────────────────────────────────────────────────────
-
-export const subscribePaymentConfig = (
-  onData: (config: PaymentConfig) => void,
-  onError?: (err: Error) => void
-): Unsubscribe => {
-  const docRef = doc(db, 'config', 'payments');
-  return onSnapshot(docRef,
-    (snap) => {
-      if (snap.exists()) {
-        const data = snap.data() as Record<string, unknown>;
-        onData({
-          dueDay: (data.dueDay as number) || 10,
-          defaultAmount: (data.defaultAmount as number) || 15000,
-        });
-      } else {
-        onData({ dueDay: 10, defaultAmount: 15000 });
-      }
-    },
-    (err) => {
-      console.error('PaymentConfig subscribe error:', err);
-      onError?.(err);
-    }
-  );
-};
 
 export const savePaymentConfig = async (config: PaymentConfig): Promise<void> => {
   await setDoc(doc(db, 'config', 'payments'), {

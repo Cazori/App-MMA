@@ -6,9 +6,8 @@ import { SubClubCard } from './SubClubCard';
 import { TutorialCard } from './TutorialCard';
 import { Calendar, Bell, MapPin, Phone, Mail, Globe, AtSign, Shield, DollarSign, Loader2 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
-import { subscribePaymentsByPeriod, subscribePaymentConfig } from '../services/storage';
-import { getCurrentPeriod, formatPeriod, computePaymentCounts, getPeriodRange } from '../utils/payments';
-import type { PaymentConfig } from '../types/mma';
+import { subscribeAllPayments } from '../services/storage';
+import { computeMembershipStatus } from '../utils/payments';
 
 interface DashboardProps {
   fighters: Fighter[];
@@ -28,16 +27,15 @@ const DAY_SCHEDULE = [
 
 export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter, onNavigate }) => {
   // ── Payment widget state ────────────────────────────────────────────
-  const [payPeriod, setPayPeriod] = useState(getCurrentPeriod());
   const [payments, setPayments] = useState<Payment[]>([]);
-  const [payConfig, setPayConfig] = useState<PaymentConfig>({ dueDay: 10, defaultAmount: 15000 });
   const [payLoading, setPayLoading] = useState(true);
   const [payError, setPayError] = useState(false);
+  const [payRetry, setPayRetry] = useState(0);
 
   useEffect(() => {
     setPayLoading(true);
     setPayError(false);
-    const unsub = subscribePaymentsByPeriod(payPeriod, (list) => {
+    const unsub = subscribeAllPayments((list) => {
       setPayments(list);
       setPayLoading(false);
     }, () => {
@@ -45,21 +43,23 @@ export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter,
       setPayLoading(false);
     });
     return unsub;
-  }, [payPeriod]);
+  }, [payRetry]);
 
-  useEffect(() => {
-    const unsub = subscribePaymentConfig((config) => {
-      setPayConfig(config);
-    });
-    return unsub;
-  }, []);
+  // Memoize membership counts per fighter
+  const payCounts = useMemo(() => {
+    let active = 0, expired = 0, pending = 0;
+    for (const f of fighters) {
+      const fPayments = payments.filter(
+        p => p.fighterId === f.id && p.status !== 'cancelled' && p.coverageEnd != null
+      );
+      const status = computeMembershipStatus(fPayments);
+      if (status === 'active') active++;
+      else if (status === 'expired') expired++;
+      else pending++;
+    }
+    return { active, expired, pending };
+  }, [fighters, payments]);
 
-  const payCounts = useMemo(
-    () => computePaymentCounts(fighters, payments, payPeriod, payConfig.dueDay),
-    [fighters, payments, payPeriod, payConfig.dueDay]
-  );
-
-  const payPeriods = getPeriodRange(3, 3);
   const hasFighters = fighters.length > 0;
 
   return (
@@ -75,12 +75,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter,
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
 
-        {/* Widget: Pagos */}
+        {/* Widget: Pagos — No period selector, membership status counts */}
         <div className="glass-panel" style={{ padding: '24px', borderRadius: '20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
             <h3 style={{ fontSize: '1.1rem', color: '#fff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <DollarSign size={18} style={{ color: 'var(--accent-orange)' }} />
-              Pagos
+              Membresías
             </h3>
             <button
               onClick={() => onNavigate('pagos')}
@@ -91,28 +91,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter,
             </button>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <select
-              value={payPeriod}
-              onChange={(e) => setPayPeriod(e.target.value)}
-              className="form-input"
-              style={{ fontSize: '0.8rem', padding: '6px 10px', width: 'auto' }}
+          {payError && (
+            <button
+              onClick={() => setPayRetry(c => c + 1)}
+              className="btn btn-secondary"
+              style={{ fontSize: '0.7rem', padding: '4px 8px', marginBottom: '12px' }}
             >
-              {payPeriods.map((p) => (
-                <option key={p} value={p}>{formatPeriod(p)}</option>
-              ))}
-            </select>
-            {payError && (
-              <button
-                onClick={() => { setPayError(false); setPayLoading(true); }}
-                className="btn btn-secondary"
-                style={{ fontSize: '0.7rem', padding: '4px 8px' }}
-                title="Reintentar"
-              >
-                Error al cargar pagos. Toca para reintentar.
-              </button>
-            )}
-          </div>
+              Error al cargar. Toca para reintentar.
+            </button>
+          )}
 
           {payLoading ? (
             <div style={{ display: 'flex', justifyContent: 'center', padding: '20px' }}>
@@ -120,15 +107,14 @@ export const Dashboard: React.FC<DashboardProps> = ({ fighters, onSelectFighter,
             </div>
           ) : !hasFighters ? (
             <p style={{ color: 'var(--text-muted)', fontSize: '0.85rem', textAlign: 'center', padding: '12px' }}>
-              No hay luchadores activos en este período
+              No hay luchadores registrados
             </p>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
               {[
-                { label: 'Pagados', value: payCounts.paid, color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)' },
-                { label: 'Pendientes', value: payCounts.pending, color: 'var(--color-warning)', bg: 'rgba(234,179,8,0.1)' },
-                { label: 'Vencidos', value: payCounts.overdue, color: 'var(--color-danger)', bg: 'rgba(239,68,68,0.1)' },
-                { label: 'Cancelados', value: payCounts.cancelled, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.03)' },
+                { label: 'Activos', value: payCounts.active, color: 'var(--color-success)', bg: 'rgba(16,185,129,0.1)' },
+                { label: 'Expirados', value: payCounts.expired, color: 'var(--color-danger)', bg: 'rgba(239,68,68,0.1)' },
+                { label: 'Sin membresía', value: payCounts.pending, color: 'var(--text-muted)', bg: 'rgba(255,255,255,0.03)' },
               ].map((c) => (
                 <div key={c.label} style={{
                   padding: '14px 12px',

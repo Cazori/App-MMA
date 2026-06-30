@@ -1,74 +1,150 @@
-import type { Fighter, Payment } from '../types/mma';
+import type { Payment, ProgramConfig } from '../types/mma';
+
+// ─── Date Helpers ──────────────────────────────────────────────────────
 
 /**
- * Computes the payment status for a fighter in a given period.
- * Returns 'paid' if a non-cancelled payment exists,
- * 'overdue' if no payment exists and the due date has passed,
- * 'pending' if no payment exists and the due date hasn't passed yet.
- * Returns 'inactive' if the fighter wasn't enrolled in this period yet.
+ * Add N months to a date, handling year boundaries and leap year edge cases.
+ * If the resulting day exceeds the month's max days, it clamps to the last day.
+ * e.g. Jan 31 + 1 month → Feb 28 (or 29 in leap year)
  */
-export function computePaymentStatus(
-  fighter: Fighter,
-  payments: Payment[],
-  period: string,
-  dueDay: number
-): 'paid' | 'pending' | 'overdue' | 'cancelled' | 'inactive' {
-  // Skip fighters who weren't enrolled yet in this period
-  if (fighter.createdAt) {
-    const enrollDate = new Date(fighter.createdAt);
-    const [year, month] = period.split('-').map(Number);
-    const periodStart = new Date(year, month - 1, 1);
-    // If fighter enrolled AFTER this period started, they're not overdue
-    if (enrollDate > periodStart) {
-      return 'pending'; // no payment expected, not overdue
+export function addMonths(date: Date, n: number): Date {
+  const result = new Date(date);
+  const totalMonths = result.getFullYear() * 12 + result.getMonth() + n;
+  const targetYear = Math.floor(totalMonths / 12);
+  const targetMonth = totalMonths % 12;
+  // Compute max day from TARGET month, then clamp before setting
+  const maxDay = new Date(targetYear, targetMonth + 1, 0).getDate();
+  const clampedDay = Math.min(result.getDate(), maxDay);
+  result.setFullYear(targetYear, targetMonth, clampedDay);
+  return result;
+}
+
+// ─── Program Auto-Detection ───────────────────────────────────────────
+
+export interface ProgramResult {
+  programId: 'daily' | 'three-day';
+  monthsPaid: number;
+}
+
+/**
+ * Given an amount and program list, detect which program(s) it matches.
+ * Returns the selected program + monthsPaid, or null if no exact match.
+ * Multiple matches → pick the highest monthly price (daily > three-day).
+ */
+export function computeProgram(
+  amount: number,
+  programs: ProgramConfig[]
+): ProgramResult | null {
+  if (amount <= 0 || programs.length === 0) return null;
+
+  const candidates: ProgramResult[] = [];
+
+  for (const prog of programs) {
+    if (amount % prog.monthlyPrice === 0) {
+      candidates.push({
+        programId: prog.id,
+        monthsPaid: amount / prog.monthlyPrice,
+      });
     }
   }
 
-  const fighterPayments = payments.filter(
-    (p) => p.fighterId === fighter.id && p.period === period
-  );
+  if (candidates.length === 0) return null;
 
-  if (fighterPayments.length === 0) {
-    // No payment recorded — determine overdue vs pending
-    const [year, month] = period.split('-').map(Number);
-    const dueDate = new Date(year, month - 1, dueDay); // month is 0-indexed
-    const today = new Date();
-    // Compare dates by stripping time
-    const dueTime = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate()).getTime();
-    const todayTime = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-
-    return dueTime < todayTime ? 'overdue' : 'pending';
+  // Multiple matches → pick highest monthly price
+  if (candidates.length > 1) {
+    const prices = new Map(programs.map(p => [p.id, p.monthlyPrice]));
+    candidates.sort((a, b) => (prices.get(b.programId) ?? 0) - (prices.get(a.programId) ?? 0));
   }
 
-  const activePayment = fighterPayments.find((p) => p.status !== 'cancelled');
-  if (activePayment) return 'paid';
+  return candidates[0];
+}
 
-  // All payments for this fighter+period are cancelled
-  const cancelledPayment = fighterPayments.find((p) => p.status === 'cancelled');
-  if (cancelledPayment) return 'cancelled';
+// ─── Coverage Computation ─────────────────────────────────────────────
 
-  return 'pending';
+export interface CoverageResult {
+  coverageStart: string;  // ISO date
+  coverageEnd: string;    // ISO date
 }
 
 /**
- * Generate a WhatsApp reminder message for a fighter.
+ * Compute coverage dates for a new payment given existing ones.
+ *
+ * Stacking: if paidAt < max existing coverageEnd → start at maxEnd
+ * Gap: if paidAt >= max existing coverageEnd (or no existing) → start at paidAt
+ *
+ * Only non-cancelled payments with coverageEnd are considered.
  */
-export function generateReminder(
-  fighterName: string,
-  amount: number,
-  period: string,
-  dueDate: string
-): string {
-  // Format period from "2026-06" to "Junio 2026"
-  const [year, month] = period.split('-').map(Number);
-  const monthNames = [
-    'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-    'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
-  ];
-  const periodLabel = `${monthNames[month - 1]} ${year}`;
+export function computeCoverage(
+  existingPayments: Payment[],
+  _programId: 'daily' | 'three-day',
+  monthsPaid: number,
+  paidAt: string,
+  _programs: ProgramConfig[]
+): CoverageResult {
+  // Filter to valid coverage payments (non-cancelled, has coverageEnd)
+  const validExisting = existingPayments.filter(
+    p => p.status !== 'cancelled' && p.coverageEnd != null
+  );
 
-  return `Hola ${fighterName}, te recuerdo que el pago de ${periodLabel} por $${amount.toLocaleString('es-CO')} COP vence el ${dueDate}. Por favor ponte al día. ¡Gracias!`;
+  const paidDate = new Date(paidAt);
+
+  if (validExisting.length > 0) {
+    // Find max coverageEnd
+    let maxEnd = new Date(0);
+    for (const p of validExisting) {
+      const end = new Date(p.coverageEnd!);
+      if (end > maxEnd) maxEnd = end;
+    }
+
+    if (paidDate < maxEnd) {
+      // Stacking: start at maxEnd
+      const coverageStart = maxEnd;
+      const coverageEnd = addMonths(coverageStart, monthsPaid);
+      return {
+        coverageStart: coverageStart.toISOString(),
+        coverageEnd: coverageEnd.toISOString(),
+      };
+    }
+  }
+
+  // Gap or first payment: start at paidAt
+  const coverageStart = paidDate;
+  const coverageEnd = addMonths(coverageStart, monthsPaid);
+  return {
+    coverageStart: coverageStart.toISOString(),
+    coverageEnd: coverageEnd.toISOString(),
+  };
 }
+
+// ─── Membership Status ────────────────────────────────────────────────
+
+export type MembershipStatus = 'active' | 'expired' | 'pending';
+
+/**
+ * Determine a fighter's membership status as of a reference date.
+ *
+ * active  → at least one non-cancelled payment with coverageEnd >= referenceDate
+ * expired → all payments have coverageEnd < referenceDate, but at least one payment exists
+ * pending → no payments with coverage fields
+ */
+export function computeMembershipStatus(
+  fighterPayments: Payment[],
+  referenceDate?: string
+): MembershipStatus {
+  const ref = referenceDate ? new Date(referenceDate) : new Date();
+
+  // Only consider non-cancelled payments with coverage fields
+  const withCoverage = fighterPayments.filter(
+    p => p.status !== 'cancelled' && p.coverageEnd != null
+  );
+
+  if (withCoverage.length === 0) return 'pending';
+
+  const hasActive = withCoverage.some(p => new Date(p.coverageEnd!) >= ref);
+  return hasActive ? 'active' : 'expired';
+}
+
+// ─── Legacy Helpers (kept for backward compat) ────────────────────────
 
 /**
  * Format period string for display.
@@ -84,55 +160,28 @@ export function formatPeriod(period: string): string {
 }
 
 /**
- * Get the current period string in YYYY-MM format.
+ * Generate a WhatsApp reminder message referencing coverage expiry.
  */
-export function getCurrentPeriod(): string {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
-  return `${y}-${m}`;
-}
-
-/**
- * Generate an array of month periods for selectors.
- * Returns periods from 6 months ago to 6 months ahead.
- */
-export function getPeriodRange(monthsBack = 6, monthsAhead = 6): string[] {
-  const now = new Date();
-  const periods: string[] = [];
-  for (let i = -monthsBack; i <= monthsAhead; i++) {
-    const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    periods.push(`${y}-${m}`);
+export function generateReminder(
+  fighterName: string,
+  amount: number,
+  programName: string,
+  coverageEnd?: string
+): string {
+  let msg = `Hola ${fighterName}, `;
+  if (coverageEnd) {
+    const endDate = new Date(coverageEnd).toLocaleDateString('es-AR');
+    msg += `su membresía venció el ${endDate}. `;
+  } else {
+    msg += `tiene un pago pendiente. `;
   }
-  return periods;
+  msg += `El valor es $${amount.toLocaleString('es-CO')} COP`;
+  if (programName) msg += ` (${programName})`;
+  msg += `. ¡Póngase al día!`;
+  return msg;
 }
 
-/**
- * Compute payment counts for the dashboard widget.
- */
-export function computePaymentCounts(
-  fighters: Fighter[],
-  payments: Payment[],
-  period: string,
-  dueDay: number
-): { paid: number; pending: number; overdue: number; cancelled: number } {
-  let paid = 0;
-  let pending = 0;
-  let overdue = 0;
-  let cancelled = 0;
-
-  for (const fighter of fighters) {
-    const status = computePaymentStatus(fighter, payments, period, dueDay);
-    if (status === 'paid') paid++;
-    else if (status === 'pending') pending++;
-    else if (status === 'overdue') overdue++;
-    else if (status === 'cancelled') cancelled++;
-  }
-
-  return { paid, pending, overdue, cancelled };
-}
+// ─── Clipboard ────────────────────────────────────────────────────────
 
 /**
  * Copy text to clipboard with fallback for insecure contexts.

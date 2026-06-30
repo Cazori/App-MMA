@@ -1,30 +1,31 @@
-import React, { useState, useEffect } from 'react';
-import type { Fighter, Payment, PaymentMethod, PaymentEdit } from '../types/mma';
+import React, { useState, useEffect, useMemo } from 'react';
+import type { Fighter, Payment, PaymentMethod, PaymentEdit, ProgramConfig } from '../types/mma';
 import { DollarSign, X, Loader2 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useFocusTrap } from '../hooks/useFocusTrap';
-import { getCurrentPeriod, getPeriodRange, formatPeriod } from '../utils/payments';
+import { computeProgram, computeCoverage } from '../utils/payments';
 
 interface PaymentFormProps {
   fighters: Fighter[];
   existingPayments: Payment[];
-  payment?: Payment | null;     // null = create mode, Payment = edit mode
+  programs: ProgramConfig[];       // NEW: program config
+  payment?: Payment | null;        // null = create mode, Payment = edit mode
   onSave: (payment: Payment) => void;
   onCancel?: (id: string) => void;
   onClose: () => void;
-  defaultPeriod?: string;
   defaultFighterId?: string;
+  // REMOVED: defaultPeriod
 }
 
 export const PaymentForm: React.FC<PaymentFormProps> = ({
   fighters,
   existingPayments,
+  programs,
   payment,
   onSave,
   onCancel,
   onClose,
-  defaultPeriod,
   defaultFighterId,
 }) => {
   const { toast } = useToast();
@@ -34,8 +35,9 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
   // ── Form state ──────────────────────────────────────────────────────
   const [fighterId, setFighterId] = useState('');
-  const [period, setPeriod] = useState(defaultPeriod || getCurrentPeriod());
-  const [amount, setAmount] = useState(15000);
+  const [paidAt, setPaidAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [amount, setAmount] = useState<number>(0);
+  const [manualProgramId, setManualProgramId] = useState<'daily' | 'three-day' | null>(null);
   const [method, setMethod] = useState<PaymentMethod>('cash');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
@@ -44,7 +46,7 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
   useEffect(() => {
     if (payment) {
       setFighterId(payment.fighterId);
-      setPeriod(payment.period);
+      setPaidAt(payment.paidAt.slice(0, 10));
       setAmount(payment.amount);
       setMethod(payment.method);
       setNotes(payment.notes || '');
@@ -55,22 +57,32 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     }
   }, [payment, defaultFighterId, fighters]);
 
-  const periods = getPeriodRange(6, 6);
+  // ── Program auto-detection ──────────────────────────────────────────
+  const programResult = useMemo(() => {
+    if (isEditMode || amount <= 0) return null;
+    return computeProgram(amount, programs);
+  }, [amount, programs, isEditMode]);
 
-  // ── Duplicate check ─────────────────────────────────────────────────
-  const hasDuplicate = (): boolean => {
-    if (isEditMode) return false; // allow editing existing
-    return existingPayments.some(
-      (p) => p.fighterId === fighterId && p.period === period && p.status !== 'cancelled'
-    );
-  };
+  const detectedProgramId = programResult?.programId ?? null;
+  const detectedMonthsPaid = programResult?.monthsPaid ?? 0;
+  const needsManualPicker = !isEditMode && amount > 0 && programResult === null;
+  const effectiveProgramId = isEditMode ? (payment?.programId ?? null) : (manualProgramId || detectedProgramId);
+  const effectiveMonthsPaid = isEditMode ? (payment?.monthsPaid ?? 1) : (manualProgramId && programResult === null
+    ? Math.floor(amount / (programs.find(p => p.id === manualProgramId)?.monthlyPrice ?? 160000))
+    : detectedMonthsPaid);
+
+  // ── Coverage preview ────────────────────────────────────────────────
+  const coveragePreview = useMemo(() => {
+    if (isEditMode || !effectiveProgramId || amount <= 0) return null;
+    const fighterPayments = existingPayments.filter(p => p.fighterId === fighterId);
+    return computeCoverage(fighterPayments, effectiveProgramId, effectiveMonthsPaid, new Date(paidAt).toISOString(), programs);
+  }, [isEditMode, effectiveProgramId, amount, paidAt, fighterId, existingPayments, effectiveMonthsPaid, programs]);
 
   // ── Submit ───────────────────────────────────────────────────────────
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
 
-    // Validation
     if (!fighterId) {
       toast('error', 'Seleccioná un luchador');
       return;
@@ -81,8 +93,8 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
       return;
     }
 
-    if (hasDuplicate()) {
-      toast('warning', 'Este luchador ya tiene un pago registrado para este período');
+    if (!effectiveProgramId) {
+      toast('error', 'Seleccioná un programa');
       return;
     }
 
@@ -90,22 +102,33 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
     try {
       const now = new Date().toISOString();
+      const paidAtISO = new Date(paidAt).toISOString();
+
+      // Compute coverage for the payment
+      const fighterPayments = existingPayments.filter(p => p.fighterId === fighterId);
+      const coverage = isEditMode
+        ? { coverageStart: payment!.coverageStart!, coverageEnd: payment!.coverageEnd! }
+        : computeCoverage(fighterPayments, effectiveProgramId, effectiveMonthsPaid, paidAtISO, programs);
+
       const paymentData: Payment = {
         id: payment?.id || `pay-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
         fighterId,
-        period,
+        period: coverage.coverageStart.slice(0, 7), // derived from coverageStart
         amount,
         method,
         status: 'paid',
         notes: notes || undefined,
-        paidAt: now,
+        paidAt: paidAtISO,
+        coverageStart: coverage.coverageStart,
+        coverageEnd: coverage.coverageEnd,
+        programId: effectiveProgramId,
+        monthsPaid: effectiveMonthsPaid,
         createdAt: payment?.createdAt || now,
         updatedAt: now,
         history: payment?.history || [],
       };
 
       if (isEditMode && payment) {
-        // Build history entry for edits
         const edits: PaymentEdit[] = [];
         if (payment.amount !== amount) {
           edits.push({ field: 'amount', from: payment.amount, to: amount, at: now, by: user?.email || 'unknown' });
@@ -123,13 +146,13 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
 
       await onSave(paymentData);
       toast('success', isEditMode ? 'Pago actualizado' : 'Pago registrado');
+      setSaving(false);
       onClose();
     } catch (err) {
       console.error('Error al guardar pago:', err);
       toast('error', 'Error al guardar. Intentá de nuevo.');
+      setSaving(false);
     }
-
-    setSaving(false);
   };
 
   // ── Cancel flow ─────────────────────────────────────────────────────
@@ -139,12 +162,13 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
     try {
       await onCancel(payment.id);
       toast('success', 'Pago cancelado');
+      setSaving(false);
       onClose();
     } catch (err) {
       console.error('Error al cancelar pago:', err);
       toast('error', 'Error al cancelar. Intentá de nuevo.');
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   return (
@@ -228,20 +252,17 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               </select>
             </div>
 
-            {/* Period Selector */}
+            {/* PaidAt Date Picker (replaces period selector) */}
             <div className="form-group">
-              <label className="form-label">Período</label>
-              <select
-                value={period}
-                onChange={(e) => setPeriod(e.target.value)}
+              <label className="form-label">Fecha de pago (pagó el)</label>
+              <input
+                type="date"
+                value={paidAt}
+                onChange={(e) => setPaidAt(e.target.value)}
                 className="form-input"
-                disabled={isEditMode}
                 required
-              >
-                {periods.map((p) => (
-                  <option key={p} value={p}>{formatPeriod(p)}</option>
-                ))}
-              </select>
+                disabled={isEditMode}
+              />
             </div>
 
             {/* Amount */}
@@ -250,13 +271,98 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               <input
                 type="number"
                 value={amount}
-                onChange={(e) => setAmount(Math.max(0, Number(e.target.value)))}
+                onChange={(e) => {
+                  setAmount(Math.max(0, Number(e.target.value)));
+                  setManualProgramId(null); // reset manual picker on amount change
+                }}
                 min={1}
                 required
                 className="form-input"
-                placeholder="15000"
+                placeholder="Ej: 160000"
+                disabled={isEditMode}
               />
             </div>
+
+            {/* Program Preview (auto-detected) */}
+            {!isEditMode && programResult && (
+              <div style={{
+                padding: '12px',
+                borderRadius: '10px',
+                background: 'rgba(16,185,129,0.1)',
+                border: '1px solid rgba(16,185,129,0.2)',
+              }}>
+                <p style={{ fontSize: '0.85rem', color: 'var(--color-success)', fontWeight: 700 }}>
+                  Programa detectado: {programs.find(p => p.id === programResult.programId)?.name} ({programResult.monthsPaid} {programResult.monthsPaid === 1 ? 'mes' : 'meses'})
+                </p>
+              </div>
+            )}
+
+            {/* Manual Program Picker (when amount doesn't match any program) */}
+            {needsManualPicker && (
+              <div style={{
+                padding: '12px',
+                borderRadius: '10px',
+                background: 'rgba(234,179,8,0.1)',
+                border: '1px solid rgba(234,179,8,0.2)',
+              }}>
+                <p style={{ fontSize: '0.8rem', color: 'var(--color-warning)', marginBottom: '8px' }}>
+                  El monto no coincide exactamente con ningún programa. Seleccioná uno manualmente:
+                </p>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {programs.every(prog => Math.floor(amount / prog.monthlyPrice) === 0) ? (
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', width: '100%' }}>
+                      El monto mínimo es ${Math.min(...programs.map(p => p.monthlyPrice)).toLocaleString('es-CO')} COP
+                    </p>
+                  ) : programs.map(prog => {
+                    const months = Math.floor(amount / prog.monthlyPrice);
+                    const remainder = amount - (months * prog.monthlyPrice);
+                    if (months === 0) return null;
+                    return (
+                      <button
+                        key={prog.id}
+                        type="button"
+                        onClick={() => setManualProgramId(prog.id)}
+                        style={{
+                          padding: '8px 14px',
+                          borderRadius: '10px',
+                          border: `2px solid ${manualProgramId === prog.id ? 'var(--accent-orange)' : 'var(--border-color)'}`,
+                          background: manualProgramId === prog.id ? 'rgba(244,63,94,0.15)' : 'transparent',
+                          color: manualProgramId === prog.id ? '#fff' : 'var(--text-secondary)',
+                          cursor: 'pointer',
+                          fontSize: '0.8rem',
+                          fontWeight: 600,
+                          textAlign: 'left',
+                        }}
+                      >
+                        <div>{prog.name}</div>
+                        <div style={{ fontSize: '0.7rem', fontWeight: 400, color: 'var(--text-muted)' }}>
+                          {months} {months === 1 ? 'mes' : 'meses'} (${(months * prog.monthlyPrice).toLocaleString('es-CO')})
+                          {remainder > 0 && `, $${remainder.toLocaleString('es-CO')} excedente`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Coverage Preview */}
+            {!isEditMode && coveragePreview && (
+              <div style={{
+                padding: '12px',
+                borderRadius: '10px',
+                background: 'rgba(59,130,246,0.1)',
+                border: '1px solid rgba(59,130,246,0.2)',
+              }}>
+                <p style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: 700 }}>
+                  Cobertura:
+                </p>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                  {new Date(coveragePreview.coverageStart).toLocaleDateString('es-AR')} → {new Date(coveragePreview.coverageEnd).toLocaleDateString('es-AR')}
+                  {' '}({effectiveMonthsPaid} {effectiveMonthsPaid === 1 ? 'mes' : 'meses'})
+                </p>
+              </div>
+            )}
 
             {/* Payment Method */}
             <div className="form-group">
@@ -287,19 +393,12 @@ export const PaymentForm: React.FC<PaymentFormProps> = ({
               />
             </div>
 
-            {/* Duplicate warning */}
-            {!isEditMode && hasDuplicate() && (
-              <p style={{ color: 'var(--color-warning)', fontSize: '0.85rem', padding: '8px 12px', background: 'rgba(234,179,8,0.1)', borderRadius: '8px' }}>
-                ⚠ Este luchador ya tiene un pago registrado para este período.
-              </p>
-            )}
-
             {/* Actions */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', borderTop: '1px solid var(--border-color)', paddingTop: '20px', marginTop: '10px' }}>
               <button type="button" onClick={onClose} className="btn btn-secondary">
                 Cancelar
               </button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>
+              <button type="submit" className="btn btn-primary" disabled={saving || (!isEditMode && needsManualPicker && !manualProgramId)}>
                 {saving ? <><Loader2 size={16} className="animate-spin" /> Guardando...</> : (isEditMode ? 'Guardar Cambios' : 'Registrar Pago')}
               </button>
             </div>
